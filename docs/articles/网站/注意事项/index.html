@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        Document
+    </title>
+    <link rel='stylesheet' href=../../../css/index.css />
+    <link rel='stylesheet' href=../../../css/c.css /><link rel='stylesheet' href=../../../css/css.css /><link rel='stylesheet' href=../../../css/json.css /><link rel='stylesheet' href=../../../css/python.css /><link rel='stylesheet' href=../../../css/shell.css /><link rel='stylesheet' href=../../../css/toml.css /><link rel='stylesheet' href=../../../css/txt.css /><link rel='stylesheet' href=../../../css/yaml.css />
+    <link rel="icon" href="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png">
+</head>
+
+<body class="light">
+    <a href="https://github.com/luzhixing12345/myblog.git" target="_blank" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewBox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+    <div class="header-navigator"><ul><li><a href="#h2-0">关于测试</a></li></ul><ul><li><a href="#h2-1">支持markdown mermaid渲染</a></li></ul><ul><li><a href="#h2-2">一些常用符号</a></li></ul><ul><li><a href="#h2-3">Fluid 主题的 Tag</a></li></ul><ul><li><a href="#h2-4">Fulid主题的按钮</a></li></ul><ul><li><a href="#h2-5">组图</a></li></ul><ul><li><a href="#h2-6">嵌入视频/音频</a></li></ul><ul><li><a href="#h2-7">mermaid</a></li></ul></div><div class='markdown-body'><h2 id="h2-0">关于测试</h2><p>建议本地调试完毕再上传,无需多commit</p><pre class="language-shell"><code><span class="Token ID">hexo</span><span class="Token SPACE"> </span><span class="Token ID">clean</span><span class="Token LF">
+</span><span class="Token ID">hexo</span><span class="Token SPACE"> </span><span class="Token ID">g</span><span class="Token LF">
+</span><span class="Token ID">hexo</span><span class="Token SPACE"> </span><span class="Token ID">serser</span></code></pre><h2 id="h2-1">支持markdown mermaid渲染</h2><p>{% note info %} 部分主题的渲染的效果并不理想,我建议使用图片. 本主题可以 {% endnote %}</p><pre class="language-shell"><code><span class="Token Program ID">npm</span><span class="Token SPACE"> </span><span class="Token ID">install</span><span class="Token SPACE"> </span><span class="Token OPTION">--save</span><span class="Token SPACE"> </span><span class="Token ID">hexo-filter-mermaid-diagrams</span></code></pre><p>在 <code>_config.melody.yml</code> 中加入</p><pre class="language-yaml"><code><span class="Token Key ID">mermaid</span><span class="Token COLON">:</span><span class="Token LF">
+</span><span class="Token SPACE">   </span><span class="Token Key ID">enable</span><span class="Token COLON">:</span><span class="Token SPACE"> </span><span class="Token TRUE">true</span></code></pre><p>在文章的开头加入</p><pre class="language-javascript"><code>&lt;script src=&quot;https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;mermaid.initialize({startOnLoad:true});&lt;/script&gt;</code></pre><h2 id="h2-2">一些常用符号</h2><p>$\beta$ $\alpha$ $\varepsilon$</p><h2 id="h2-3">Fluid 主题的 Tag</h2><p>这里的绝对不能错! 错了在<code>hexo g -d</code>阶段会报一个 <code>err: Template render error: (unknown path)</code> 的错误信息,而且不会提示你哪个文件错了,你要自己找,很难受,一定要注意前后符号的对应</p><p>{% note success %}</p><pre class="language-markdown"><code>{% note success %}
+success
+{% endnote %}</code></pre><p>{% endnote %}</p><p>{% note danger %}</p><pre class="language-markdown"><code>{% note danger %}
+danger
+{% endnote %}</code></pre><p>{% endnote %}</p><p>{% note warning %}</p><pre class="language-markdown"><code>{% note warning %}
+warning
+{% endnote %}</code></pre><p>{% endnote %}</p><p>{% note info %}</p><pre class="language-markdown"><code>{% note info %}
+info
+{% endnote %}</code></pre><p>{% endnote %}</p><p>{% note light %}</p><pre class="language-markdown"><code>{% note info %}
+light
+{% endnote %}</code></pre><p>{% endnote %}</p><h2 id="h2-4">Fulid主题的按钮</h2><pre class="language-markdown"><code>{% btn url, text, title %}</code></pre><p>{% btn url, text, title %}</p><h2 id="h2-5">组图</h2><pre class="language-markdown"><code>{% gi 5 3-2 %}
+   ![](https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png)
+   ![](https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png)
+   ![](https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png)
+   ![](https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png)
+   ![](https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png)
+{% endgi %}</code></pre><p>{% gi 5 3-2 %}</p><p><a data-lightbox="example-1" href="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png"><img loading="lazy" src="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png" alt="" class="pic-big"></a> <a data-lightbox="example-1" href="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png"><img loading="lazy" src="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png" alt="" class="pic-big"></a> <a data-lightbox="example-1" href="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png"><img loading="lazy" src="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png" alt="" class="pic-big"></a> <a data-lightbox="example-1" href="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png"><img loading="lazy" src="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png" alt="" class="pic-big"></a> <a data-lightbox="example-1" href="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png"><img loading="lazy" src="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png" alt="" class="pic-big"></a></p><p>{% endgi %}</p><h2 id="h2-6">嵌入视频/音频</h2><blockquote><p><a href="https://keatonlao.gitee.io/a-study-note-for-markdown/syntax/%E8%AF%A6%E7%BB%86%E7%89%88/markdown-%E6%8F%92%E5%85%A5%E8%A7%86%E9%A2%91/" target="_blank">markdown-插入HTML</a></p></blockquote><p>本主题fluid是支持使用iframe插入视频的,通常来说网站上的其他视频都会给嵌入代码.</p><p>以嵌入B站视频举例,分享 -&gt; 嵌入代码 -&gt; 复制</p><p>{% note warning %} 复制嵌入代码这里有时候经常没复制到剪切板,要留意一下确定复制正确了 {% endnote %}</p><p>但是这里会有一个比较坑的点,iframe并不是自适应网页宽度</p><p>下面是一个比较好的模板,替换其中的src资源链接就可以了,支持全屏</p><pre class="language-html"><code>&lt;iframe width=100% height=450 src=&quot;&quot; allowfullscreen scrolling=&quot;auto&quot; border=&quot;0&quot; frameborder=&quot;no&quot; framespacing=&quot;0&quot;&gt; &lt;/iframe&gt;</code></pre><h2 id="h2-7">mermaid</h2><p>{% mermaid %} graph LR</p><p>a --&gt; b b --&gt; c</p><p>{% endmermaid %}</p><pre class="language-markdown"><code>{% mermaid %}
+graph LR
+   a --&gt; b
+   b --&gt; c
+{% endmermaid %}</code></pre><p>这里不知道为什么好像传统的mermaid的解析方式有点小问题,还是要用<code>{% mermaid %}</code>这种格式的才可以</p></div>
+    <div id="dir-tree-placeholder"></div>
+    <div class="zood"><a class="" href="https://github.com/luzhixing12345/zood" target="_blank">zood</a></div>
+    <script type="text/javascript" src="../../../js/dir_tree_toggle.js"></script><script type="text/javascript" src="../../../js/copy_code.js"></script><script type="text/javascript" src="../../../js/navigator.js"></script><script type="text/javascript" src="../../../js/picture_preview.js"></script><script type="text/javascript" src="../../../js/global_js_configuration.js"></script>
+<script>
+    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${wsProtocol}://${window.location.hostname}:8765`);
+    ws.onmessage = (event) => {
+        if (event.data === "reload") location.reload();
+    };
+</script>
+    
+</body>
+
+</html>
