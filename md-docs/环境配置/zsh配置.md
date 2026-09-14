@@ -64,7 +64,7 @@ git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git ${Z
 ```bash
 vim ~/.zshrc
 # 添加 zsh-syntax-highlighting
-plugins (git zsh-autosuggestions zsh-syntax-highlighting)
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 ```
 
 ### conda
