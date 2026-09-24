@@ -1,27 +1,25 @@
 .:
 - README: 1
+post:
+- agent沙箱与harness: 1
+- 从豆包手机到 muse，深度解析个人助手型agent的发展趋势: 2
 环境配置:
 - docker基本命令: 1
 - gcc版本切换: 2
 - Linux代理配置: 3
-- pws美化: 6
-- Ubuntu切换NVIDIA驱动: 7
-- Ubuntu工作环境配置: 8
-- VMware虚拟机配置: 9
-- WSL2配置: 10
-- zsh配置: 11
-- 双系统安装: 12
-- rust: 13
-- 发布deb包: 14
+- pws美化: 4
+- Ubuntu切换NVIDIA驱动: 5
+- Ubuntu工作环境配置: 6
+- VMware虚拟机配置: 7
+- WSL2配置: 8
+- zsh配置: 9
+- 双系统安装: 10
+- rust: 11
+- 发布deb包: 12
 python:
-- pytorch预训练模型下载地址: 1
-- 优雅的日志记录-logging: 2
-- 使用PYPI发布python包: 3
-- 测试覆盖率: 4
-- 深度学习模型部署-1: 5
-- 深度学习模型部署-2: 6
-- uv: 7
-- 语音识别: 8
+- 使用PYPI发布python包: 1
+- uv: 2
+- 语音识别: 3
 服务器:
 - SSH: 1
 - 服务器入门: 2
@@ -29,28 +27,3 @@ python:
 - frp: 4
 - 内存占用高排查: 5
 - 问题排查: 6
-csapp:
-- 浮点数的表示: 1
-GAN:
-- GAN网络详解(一): 1
-- GAN网络详解(三): 2
-- GAN网络详解(二): 3
-- GAN网络详解(四): 4
-git:
-- gitignore使用: 1
-- git常用命令: 2
-- git的branch和pull: 3
-- git的commit用法: 4
-- git的SSH连接: 5
-- git的使用: 6
-体系结构:
-- 动态内存分配: 1
-杂:
-- vscode基本配置: 1
-- 疑难杂症的报错: 2
-网站:
-- hexo部署网页: 1
-- 搭建个人博客: 2
-- 注意事项: 3
-bpf:
-- bcc: 1

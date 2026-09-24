@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Todo</title>
+<style>
+  :root {
+    --background: #ffffff;
+    --foreground: #09090b;
+    --card: #ffffff;
+    --muted: #f4f4f5;
+    --muted-foreground: #71717a;
+    --border: #e4e4e7;
+    --input: #e4e4e7;
+    --primary: #18181b;
+    --primary-foreground: #fafafa;
+    --accent: #f4f4f5;
+    --destructive: #dc2626;
+    --ring: #a1a1aa;
+    --link: #3b82f6;
+    --radius: 0.5rem;
+  }
+  :root.dark {
+    --background: #09090b;
+    --foreground: #fafafa;
+    --card: #09090b;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --border: #27272a;
+    --input: #27272a;
+    --primary: #fafafa;
+    --primary-foreground: #18181b;
+    --accent: #27272a;
+    --destructive: #ef4444;
+    --ring: #52525b;
+    --link: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body {
+    font-family: "Geist", "Inter", ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .container { max-width: 640px; margin: 0 auto; padding: 56px 20px 80px; }
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; }
+  .subtitle { color: var(--muted-foreground); margin-top: 6px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .card-body { padding: 16px; }
+  .separator { height: 1px; background: var(--border); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 36px; padding: 0 16px; border-radius: var(--radius);
+    font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
+    border: 1px solid transparent; background: transparent;
+    transition: background-color .15s, color .15s, opacity .15s;
+  }
+  .btn:focus-visible, .input:focus-visible, .checkbox:focus-visible, .tab:focus-visible {
+    outline: none; box-shadow: 0 0 0 1px var(--background), 0 0 0 3px var(--ring);
+  }
+  .btn:disabled { opacity: .5; pointer-events: none; }
+  .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+  .btn-primary:hover { opacity: .9; }
+  .btn-outline { border-color: var(--input); background: var(--background); }
+  .btn-outline:hover, .btn-ghost:hover { background: var(--accent); }
+  .btn-destructive { background: var(--destructive); color: #fff; }
+  .btn-destructive:hover { opacity: .9; }
+  .btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+  .btn-icon { width: 32px; height: 32px; padding: 0; }
+  .btn-ghost.danger:hover { color: var(--destructive); }
+  .btn-ghost.star[aria-pressed="true"] svg { fill: currentColor; }
+  .item.starred .actions .star { opacity: 1; }
+
+  .input {
+    width: 100%; height: 36px; padding: 0 12px;
+    border: 1px solid var(--input); border-radius: var(--radius);
+    background: transparent; font-size: 14px;
+    transition: box-shadow .15s;
+  }
+  .input::placeholder { color: var(--muted-foreground); }
+  textarea.input { height: auto; min-height: 60px; padding: 8px 12px; resize: vertical; }
+
+  .add-form { display: grid; gap: 8px; }
+  .add-row { display: flex; gap: 8px; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+  .tabs { display: inline-flex; padding: 3px; gap: 2px; background: var(--muted); border-radius: var(--radius); }
+  .tab {
+    height: 28px; padding: 0 12px; border: 0; border-radius: calc(var(--radius) - 2px);
+    background: transparent; color: var(--muted-foreground); font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--background); color: var(--foreground); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .badge {
+    display: inline-flex; align-items: center; height: 20px; padding: 0 8px; margin-left: 4px;
+    border-radius: 999px; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border); color: var(--muted-foreground);
+  }
+
+  ul.list { list-style: none; padding: 0; }
+  .item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--border); }
+  .checkbox {
+    appearance: none; width: 16px; height: 16px; margin-top: 3px; flex-shrink: 0;
+    border: 1px solid var(--primary); border-radius: 4px; cursor: pointer; display: grid; place-content: center;
+  }
+  .checkbox:checked { background: var(--primary); }
+  .checkbox:checked::after {
+    content: ""; width: 9px; height: 5px; margin-top: -2px;
+    border-left: 2px solid var(--primary-foreground); border-bottom: 2px solid var(--primary-foreground);
+    transform: rotate(-45deg);
+  }
+  .content { flex: 1; min-width: 0; }
+  .title { font-weight: 500; word-break: break-word; }
+  .note { color: var(--muted-foreground); font-size: 13px; margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+  .note a { color: var(--link); text-decoration: none; word-break: break-all; }
+  .note a:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .meta { color: var(--muted-foreground); font-size: 12px; margin-top: 4px; }
+  .item.done .title { text-decoration: line-through; color: var(--muted-foreground); }
+  .actions { display: flex; gap: 2px; }
+  .actions .btn { opacity: .35; transition: opacity .15s; }
+  .item:hover .actions .btn { opacity: 1; }
+  .edit-form { display: grid; gap: 8px; }
+  .edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  .empty { padding: 48px 16px; text-align: center; color: var(--muted-foreground); border-top: 1px solid var(--border); }
+  .empty svg { width: 28px; height: 28px; margin-bottom: 8px; opacity: .6; }
+
+  footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted-foreground); font-size: 13px; }
+  footer .left { display: flex; align-items: center; gap: 6px; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+  .overlay.open { display: flex; }
+  .dialog { width: 100%; max-width: 420px; padding: 24px; background: var(--background); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+  .dialog h2 { font-size: 18px; font-weight: 600; }
+  .dialog p { color: var(--muted-foreground); margin-top: 8px; word-break: break-word; }
+  .dialog .edit-actions { margin-top: 20px; }
+
+  .toaster { position: fixed; right: 20px; bottom: 20px; display: grid; gap: 8px; z-index: 60; }
+  .toast {
+    min-width: 260px; max-width: 360px; padding: 14px 16px;
+    background: var(--background); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: 0 4px 12px rgba(0,0,0,.1); font-size: 13px;
+    animation: toast-in .2s ease-out;
+  }
+  .toast.error { border-color: var(--destructive); }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+</style>
+<script>
+  if (localStorage.theme === "dark" || (!localStorage.theme && matchMedia("(prefers-color-scheme: dark)").matches)) {
+    document.documentElement.classList.add("dark");
+  }
+</script>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>待办事项</h1>
+      <p class="subtitle" id="summary">加载中…</p>
+    </div>
+    <button class="btn btn-outline btn-icon" id="theme" title="切换主题" aria-label="切换主题">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    </button>
+  </header>
+
+  <div class="card">
+    <form class="card-body add-form" id="add-form" autocomplete="off">
+      <div class="add-row">
+        <input class="input" id="new-title" placeholder="添加一项待办…" maxlength="200" required>
+        <button class="btn btn-primary" type="submit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          添加
+        </button>
+      </div>
+      <textarea class="input" id="new-note" placeholder="备注（可选）" rows="2" hidden></textarea>
+    </form>
+    <div class="separator"></div>
+    <div class="toolbar">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-filter="active" aria-selected="true">未完成</button>
+        <button class="tab" role="tab" data-filter="done" aria-selected="false">已完成</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="toggle-note" type="button">添加备注</button>
+    </div>
+    <ul class="list" id="list"></ul>
+  </div>
+
+  <footer>
+    <div class="left">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>
+      <span id="notify-info">每天 18:00（北京时间）邮件提醒未完成事项</span>
+    </div>
+    <button class="btn btn-outline btn-sm" id="test-mail">立即发送</button>
+  </footer>
+</div>
+
+<div class="overlay" id="confirm" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <h2>删除这项待办？</h2>
+    <p id="confirm-text"></p>
+    <div class="edit-actions">
+      <button class="btn btn-outline" id="confirm-cancel">取消</button>
+      <button class="btn btn-destructive" id="confirm-ok">删除</button>
+    </div>
+  </div>
+</div>
+
+<div class="toaster" id="toaster"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const ICON = {
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.52 2.3a.53.53 0 0 1 .96 0l2.31 4.68a2.12 2.12 0 0 0 1.6 1.16l5.16.76a.53.53 0 0 1 .3.9l-3.74 3.64a2.12 2.12 0 0 0-.61 1.88l.88 5.14a.53.53 0 0 1-.78.56l-4.62-2.43a2.12 2.12 0 0 0-1.97 0L6.4 21.02a.53.53 0 0 1-.77-.56l.88-5.14a2.12 2.12 0 0 0-.61-1.88L2.16 9.8a.53.53 0 0 1 .3-.9l5.16-.76a2.12 2.12 0 0 0 1.6-1.16z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>',
+};
+
+let todos = [];
+let filter = "active";
+let editing = null;
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function linkify(text) {
+  const parts = String(text).split(/(https?:\/\/[!-~]+)/);
+  return parts.map((part, i) => {
+    if (i % 2 === 0) return esc(part);
+    const [, url, tail] = part.match(/^(.*?)([.,;:!?'")\]}>]*)$/);
+    return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>${esc(tail)}`;
+  }).join("");
+}
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function toast(msg, error = false) {
+  const el = document.createElement("div");
+  el.className = "toast" + (error ? " error" : "");
+  el.textContent = msg;
+  $("#toaster").appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function render() {
+  const active = todos.filter((t) => !t.done).length;
+  $("#summary").textContent = todos.length
+    ? `共 ${todos.length} 项，${active} 项未完成`
+    : "还没有待办事项";
+
+  document.querySelectorAll(".tab").forEach((tab) => {
+    const f = tab.dataset.filter;
+    const n = f === "active" ? active : todos.length - active;
+    tab.innerHTML = `${tab.dataset.label || (tab.dataset.label = tab.textContent)}<span class="badge">${n}</span>`;
+    tab.setAttribute("aria-selected", f === filter);
+  });
+
+  const shown = todos
+    .filter((t) => (filter === "done") === t.done)
+    .sort((a, b) => !!b.starred - !!a.starred);
+  const list = $("#list");
+  if (!shown.length) {
+    list.innerHTML = `<li class="empty">${ICON.inbox}<div>${filter === "done" ? "暂无已完成事项" : todos.length ? "全部完成了" : "添加第一项待办吧"}</div></li>`;
+    return;
+  }
+  list.innerHTML = shown.map((t) => {
+    if (editing === t.id) {
+      return `<li class="item" data-id="${t.id}">
+        <form class="content edit-form" data-edit>
+          <input class="input" name="title" value="${esc(t.title)}" maxlength="200" required>
+          <textarea class="input" name="note" rows="2" placeholder="备注（可选）">${esc(t.note || "")}</textarea>
+          <div class="edit-actions">
+            <button class="btn btn-outline btn-sm" type="button" data-action="cancel">取消</button>
+            <button class="btn btn-primary btn-sm" type="submit">保存</button>
+          </div>
+        </form>
+      </li>`;
+    }
+    return `<li class="item${t.done ? " done" : ""}${t.starred ? " starred" : ""}" data-id="${t.id}">
+      <input type="checkbox" class="checkbox" data-action="toggle" ${t.done ? "checked" : ""} aria-label="完成">
+      <div class="content">
+        <div class="title">${esc(t.title)}</div>
+        ${t.note ? `<div class="note">${linkify(t.note)}</div>` : ""}
+        <div class="meta">${t.done ? "完成于" : "创建于"} ${fmtTime(t.done ? t.updated_at : t.created_at)}</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost btn-icon star" data-action="star" aria-pressed="${!!t.starred}" title="${t.starred ? "取消星标" : "标星"}">${ICON.star}</button>
+        <button class="btn btn-ghost btn-icon" data-action="edit" title="编辑">${ICON.edit}</button>
+        <button class="btn btn-ghost btn-icon danger" data-action="delete" title="删除">${ICON.trash}</button>
+      </div>
+    </li>`;
+  }).join("");
+
+  const form = list.querySelector("[data-edit]");
+  if (form) {
+    const input = form.querySelector("input");
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+}
+
+async function load() {
+  try {
+    todos = await api("GET", "/api/todos");
+    render();
+  } catch (e) {
+    toast("加载失败：" + e.message, true);
+  }
+  try {
+    const s = await api("GET", "/api/status");
+    if (s.last_notified) $("#notify-info").textContent += `，上次检查 ${s.last_notified}`;
+  } catch {}
+}
+
+$("#add-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = $("#new-title").value.trim();
+  if (!title) return;
+  try {
+    const t = await api("POST", "/api/todos", { title, note: $("#new-note").value });
+    todos.unshift(t);
+    $("#new-title").value = "";
+    $("#new-note").value = "";
+    filter = "active";
+    render();
+  } catch (e) {
+    toast(e.message, true);
+  }
+});
+
+$("#toggle-note").addEventListener("click", () => {
+  const note = $("#new-note");
+  note.hidden = !note.hidden;
+  $("#toggle-note").textContent = note.hidden ? "添加备注" : "收起备注";
+  if (!note.hidden) note.focus();
+});
+
+document.querySelector(".tabs").addEventListener("click", (e) => {
+  const tab = e.target.closest(".tab");
+  if (!tab) return;
+  filter = tab.dataset.filter;
+  render();
+});
+
+let pendingDelete = null;
+function openConfirm(t) {
+  pendingDelete = t.id;
+  $("#confirm-text").textContent = `「${t.title}」将被永久删除，此操作无法撤销。`;
+  $("#confirm").classList.add("open");
+  $("#confirm-ok").focus();
+}
+function closeConfirm() {
+  pendingDelete = null;
+  $("#confirm").classList.remove("open");
+}
+$("#confirm-cancel").addEventListener("click", closeConfirm);
+$("#confirm").addEventListener("click", (e) => { if (e.target.id === "confirm") closeConfirm(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (pendingDelete) closeConfirm();
+  else if (editing) { editing = null; render(); }
+});
+$("#confirm-ok").addEventListener("click", async () => {
+  const id = pendingDelete;
+  closeConfirm();
+  try {
+    await api("DELETE", `/api/todos/${id}`);
+    todos = todos.filter((t) => t.id !== id);
+    render();
+  } catch (e) {
+    toast(e.message, true);
+  }
+});
+
+$("#list").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const id = btn.closest(".item").dataset.id;
+  const t = todos.find((x) => x.id === id);
+  const action = btn.dataset.action;
+  if (action === "toggle") {
+    try {
+      Object.assign(t, await api("PATCH", `/api/todos/${id}`, { done: btn.checked }));
+    } catch (err) {
+      toast(err.message, true);
+    }
+    render();
+  } else if (action === "star") {
+    try {
+      Object.assign(t, await api("PATCH", `/api/todos/${id}`, { starred: !t.starred }));
+      render();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  } else if (action === "edit") {
+    editing = id;
+    render();
+  } else if (action === "cancel") {
+    editing = null;
+    render();
+  } else if (action === "delete") {
+    openConfirm(t);
+  }
+});
+
+$("#list").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const id = form.closest(".item").dataset.id;
+  try {
+    const updated = await api("PATCH", `/api/todos/${id}`, {
+      title: form.elements.title.value,
+      note: form.elements.note.value,
+    });
+    Object.assign(todos.find((x) => x.id === id), updated);
+    editing = null;
+    render();
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
+$("#test-mail").addEventListener("click", async () => {
+  const btn = $("#test-mail");
+  btn.disabled = true;
+  btn.textContent = "发送中…";
+  try {
+    const r = await api("POST", "/api/notify");
+    toast(r.message, !r.ok);
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "立即发送";
+  }
+});
+
+$("#theme").addEventListener("click", () => {
+  const dark = document.documentElement.classList.toggle("dark");
+  localStorage.theme = dark ? "dark" : "light";
+});
+
+load();
+</script>
+</body>
+</html>

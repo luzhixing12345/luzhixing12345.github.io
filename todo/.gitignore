@@ -1,0 +1,5 @@
+e2me.toml
+todos.json
+state.json
+*.tmp
+__pycache__/
