@@ -1,0 +1,77 @@
+
+/* Keep zood's column geometry. Only shift it down so the top bar does not cover it. */
+
+body.zood-page {
+  position: static;
+  height: auto;
+  min-height: 100%;
+}
+
+@media screen and (min-width: 769px) {
+  body.zood-page .markdown-body {
+    margin-top: calc(56px + 2%);
+  }
+
+  body.zood-page .dir-tree,
+  body.zood-page .header-navigator {
+    top: calc(56px + 10%);
+  }
+}
+
+.markdown-body .table-scroll {
+  overflow-x: auto;
+}
+
+.markdown-body pre .copy-btn {
+  background: #0b0b0b;
+  color: #9198a1;
+  border-color: transparent;
+}
+
+.markdown-body pre .copy-btn:hover {
+  background: #171717;
+  color: #fafafa;
+}
+
+.markdown-body img {
+  cursor: zoom-in;
+}
+
+.note-mobile-index { display: none; }
+
+.header-navigator a.link-active {
+  font-weight: 700;
+  color: #111;
+}
+
+@media screen and (max-width: 768px) {
+  body.zood-page .markdown-body {
+    margin-top: 56px;
+    padding: 8px 16px 40px;
+  }
+
+  .note-mobile-index {
+    display: block;
+    margin: 0 0 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 8px 14px 12px;
+    background: #fff;
+  }
+
+  .note-mobile-index summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .note-mobile-index a {
+    display: block;
+    padding: 4px 0;
+  }
+
+  .mobile-cat {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #6b7280;
+  }
+}
