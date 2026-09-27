@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import html
 import json
 import os
 import re
 import shutil
+import socket
 import subprocess
+import threading
 import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,6 +27,19 @@ DOCS = ROOT / "docs"
 THEME = ROOT / "theme"
 CHINA = ROOT / "data" / "china.json"
 SITE_NAME = "陆知行"
+_LIVE = ""
+_LIVE_CLIENTS: set = set()
+_LIVE_LOOP: asyncio.AbstractEventLoop | None = None
+
+_LIVE_SCRIPT = """<script>
+(function () {
+  var socket = new WebSocket("ws://127.0.0.1:WS_PORT");
+  socket.onmessage = function (event) {
+    if (event.data === "reload") location.reload();
+  };
+})();
+</script>
+"""
 
 
 def fill(template: str, mapping: dict[str, str]) -> str:
@@ -126,6 +142,7 @@ class Post:
     date: str
     summary: str
     html: str
+    toc: str
     has_mermaid: bool
 
 
@@ -176,6 +193,7 @@ def collect_posts() -> list[Post]:
                 date=times.get(path.name) or file_date(path, {}),
                 summary=excerpt(text),
                 html=doc.html,
+                toc=doc.toc,
                 has_mermaid=doc.has_mermaid,
             )
         )
@@ -290,9 +308,17 @@ def asset_map(from_dir: Path) -> dict[str, str]:
 
 
 def write_html(path: Path, template_name: str, mapping: dict[str, str]) -> None:
+    mapping.setdefault("TOC", "")
+    mapping.setdefault("LIVE", _LIVE)
     template = (THEME / template_name).read_text(encoding="utf-8")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(fill(template, mapping), encoding="utf-8")
+
+
+def side_toc(toc: str) -> str:
+    if toc.count("<a ") < 2:
+        return ""
+    return f'<nav class="article-toc" aria-label="目录">{toc}</nav>'
 
 
 def article_page(date: str, body: str, kicker_href: str = "", kicker: str = "") -> str:
@@ -383,7 +409,9 @@ def code_styles(from_dir: Path, languages: list[str]) -> str:
     )
 
 
-def build() -> tuple[int, int]:
+def build(live_port: int | None = None) -> tuple[int, int]:
+    global _LIVE
+    _LIVE = _LIVE_SCRIPT.replace("WS_PORT", str(live_port)) if live_port else ""
     if not CHINA.exists():
         raise SystemExit(f"missing map data: {CHINA}")
     reset_languages()
@@ -424,6 +452,7 @@ def build() -> tuple[int, int]:
                 "HEADER": render_header(folder, "blog"),
                 "WIDE": "",
                 "CONTENT": article_page(post.date, post.html),
+                "TOC": side_toc(post.toc),
                 "CODE_CSS": code_styles(folder, languages),
                 "EXTRA": MERMAID_SCRIPT if post.has_mermaid else "",
                 **asset_map(folder),
@@ -509,10 +538,119 @@ def build() -> tuple[int, int]:
     return len(posts), len(trips)
 
 
-def serve(port: int, open_browser: bool) -> None:
+def _pick_port(start: int) -> int:
+    port = start
+    while port < 65535:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                port += 1
+    raise SystemExit("no free port for live reload")
+
+
+async def _live_handler(websocket, *_args) -> None:
+    _LIVE_CLIENTS.add(websocket)
+    try:
+        await websocket.wait_closed()
+    finally:
+        _LIVE_CLIENTS.discard(websocket)
+
+
+async def _notify_reload() -> None:
+    if not _LIVE_CLIENTS:
+        return
+    await asyncio.gather(*[client.send("reload") for client in list(_LIVE_CLIENTS)], return_exceptions=True)
+
+
+def _notify_browsers() -> None:
+    if _LIVE_LOOP is None:
+        return
+    asyncio.run_coroutine_threadsafe(_notify_reload(), _LIVE_LOOP).result(timeout=5)
+
+
+def _serve_live_socket(port: int) -> None:
+    global _LIVE_LOOP
+    import websockets
+
+    async def run() -> None:
+        global _LIVE_LOOP
+        _LIVE_LOOP = asyncio.get_running_loop()
+        async with websockets.serve(_live_handler, "127.0.0.1", port):
+            await asyncio.Future()
+
+    asyncio.run(run())
+
+
+class _BlogWatch:
+    def __init__(self, live_port: int) -> None:
+        from watchdog.events import FileSystemEventHandler
+
+        self._live_port = live_port
+        self._timer: threading.Timer | None = None
+        self._lock = threading.Lock()
+
+        class Handler(FileSystemEventHandler):
+            def on_modified(self, event):
+                owner._queue(event)
+
+            def on_created(self, event):
+                owner._queue(event)
+
+            def on_moved(self, event):
+                owner._queue(event)
+
+            def on_deleted(self, event):
+                owner._queue(event)
+
+        owner = self
+        self.handler = Handler()
+
+    def _queue(self, event) -> None:
+        if event.is_directory:
+            return
+        path = getattr(event, "dest_path", None) or event.src_path
+        if not str(path).lower().endswith(".md"):
+            return
+        if self._timer:
+            self._timer.cancel()
+        self._timer = threading.Timer(2.0, self._rebuild)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _rebuild(self) -> None:
+        with self._lock:
+            self._timer = None
+            print("正在刷新...", flush=True)
+            try:
+                blogs, trips = build(self._live_port)
+            except Exception as exc:
+                print(f"刷新失败: {exc}", flush=True)
+                return
+            print(f"blog {blogs}, travel {trips} -> docs/", flush=True)
+        _notify_browsers()
+
+
+def _watch_blog(live_port: int):
+    from watchdog.observers import Observer
+
+    blog = ROOT / "blog"
+    blog.mkdir(parents=True, exist_ok=True)
+    watch = _BlogWatch(live_port)
+    observer = Observer()
+    observer.schedule(watch.handler, str(blog), recursive=True)
+    observer.start()
+    return observer
+
+
+def serve(port: int, open_browser: bool, live_port: int | None = None) -> None:
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(DOCS), **kwargs)
+
+        def log_message(self, format, *args):
+            return
 
     httpd = None
     for candidate in range(port, port + 20):
@@ -523,14 +661,26 @@ def serve(port: int, open_browser: bool) -> None:
             continue
     if httpd is None:
         raise SystemExit(f"no free port from {port}")
+
+    observer = None
+    if live_port:
+        threading.Thread(target=_serve_live_socket, args=(live_port,), daemon=True).start()
+        observer = _watch_blog(live_port)
+
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     print(url, flush=True)
+    if live_port:
+        print("watching blog/", flush=True)
     if open_browser:
         webbrowser.open(url)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nstopped", flush=True)
+    finally:
+        if observer is not None:
+            observer.stop()
+            observer.join(timeout=2)
         httpd.server_close()
 
 
@@ -540,10 +690,11 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=9381)
     parser.add_argument("--no-open", action="store_true", help="do not open a browser")
     args = parser.parse_args()
-    blogs, trips = build()
+    live_port = None if args.build_only else _pick_port(8765)
+    blogs, trips = build(live_port)
     print(f"blog {blogs}, travel {trips} -> docs/", flush=True)
     if not args.build_only:
-        serve(args.port, not args.no_open)
+        serve(args.port, not args.no_open, live_port)
 
 
 if __name__ == "__main__":

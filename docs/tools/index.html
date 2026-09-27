@@ -25,7 +25,17 @@
   <main class="wrap">
     <article class="prose"><h2 id="h2-0">工具库</h2><p>在线图片处理（裁剪/尺寸/压缩/证件照）: <a href="https://luzhixing12345.github.io/pic-handle/" target="_blank">https://luzhixing12345.github.io/pic-handle/</a></p></article>
   </main>
+  
   <script src="../js/site.js"></script>
   
+  <script>
+(function () {
+  var socket = new WebSocket("ws://127.0.0.1:8765");
+  socket.onmessage = function (event) {
+    if (event.data === "reload") location.reload();
+  };
+})();
+</script>
+
 </body>
 </html>

@@ -142,9 +142,54 @@
     });
   }
 
+  function setupArticleToc() {
+    var nav = document.querySelector(".article-toc");
+    if (!nav) return;
+    var links = Array.prototype.slice.call(nav.querySelectorAll('a[href^="#"]'));
+    var heads = links.map(function (link) {
+      return document.querySelector(link.getAttribute("href"));
+    }).filter(Boolean);
+    if (!heads.length) return;
+    links = links.filter(function (link) {
+      return document.querySelector(link.getAttribute("href"));
+    });
+    links.forEach(function (link) {
+      link.title = link.textContent.trim();
+      link.addEventListener("click", function (event) {
+        var target = document.querySelector(link.getAttribute("href"));
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.pushState(null, "", link.getAttribute("href"));
+      });
+    });
+
+    function mark() {
+      var current = heads[0];
+      heads.forEach(function (head) {
+        if (head.getBoundingClientRect().top <= 96) current = head;
+      });
+      var id = current.id;
+      links.forEach(function (link) {
+        var on = link.getAttribute("href") === "#" + id;
+        link.classList.toggle("active", on);
+        if (!on) return;
+        var navBox = nav.getBoundingClientRect();
+        var linkBox = link.getBoundingClientRect();
+        if (linkBox.top < navBox.top) nav.scrollTop -= navBox.top - linkBox.top;
+        else if (linkBox.bottom > navBox.bottom) nav.scrollTop += linkBox.bottom - navBox.bottom;
+      });
+    }
+
+    mark();
+    window.addEventListener("scroll", mark, { passive: true });
+    window.addEventListener("resize", mark);
+  }
+
   ready(function () {
     setupCopy();
     setupImages();
     setupMap();
+    setupArticleToc();
   });
 })();

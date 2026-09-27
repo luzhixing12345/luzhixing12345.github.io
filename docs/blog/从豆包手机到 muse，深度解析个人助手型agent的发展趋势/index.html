@@ -25,7 +25,17 @@
   <main class="wrap">
     <article class="prose"><p class="meta"><time datetime="2026-09-25">2026-09-25</time></p><h1 id="h1-0">从豆包手机到 muse，深度解析个人助手型agent的发展趋势</h1></article>
   </main>
+  
   <script src="../../js/site.js"></script>
   
+  <script>
+(function () {
+  var socket = new WebSocket("ws://127.0.0.1:8765");
+  socket.onmessage = function (event) {
+    if (event.data === "reload") location.reload();
+  };
+})();
+</script>
+
 </body>
 </html>

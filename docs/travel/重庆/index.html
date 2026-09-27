@@ -25,7 +25,17 @@
   <main class="wrap">
     <article class="prose"><p class="kicker"><a href="../">游记</a></p><p class="meta"><time datetime="2026-09-27">2026-09-27</time></p><h1 id="h1-0">重庆游记</h1></article>
   </main>
+  
   <script src="../../js/site.js"></script>
   
+  <script>
+(function () {
+  var socket = new WebSocket("ws://127.0.0.1:8765");
+  socket.onmessage = function (event) {
+    if (event.data === "reload") location.reload();
+  };
+})();
+</script>
+
 </body>
 </html>
