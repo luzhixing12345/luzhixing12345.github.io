@@ -105,10 +105,91 @@ def file_date(path: Path, dates: dict[str, str]) -> str:
     return datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d")
 
 
-def load_blog_times(path: Path) -> dict[str, str]:
-    times: dict[str, str] = {}
+def _unquote(text: str) -> str:
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in "\"'":
+        return text[1:-1]
+    return text
+
+
+def _parse_tags(text: str) -> list[str]:
+    body = text.strip()
+    if body.startswith("[") and body.endswith("]"):
+        body = body[1:-1]
+    tags: list[str] = []
+    for part in body.split(","):
+        tag = _unquote(part.strip())
+        if tag and tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def load_blog_config(path: Path) -> dict[str, dict[str, object]]:
+    """Read blog/posts.yaml. Each article is a filename key with date and tags."""
+    posts: dict[str, dict[str, object]] = {}
     if not path.exists():
-        return times
+        return posts
+    current: dict[str, object] | None = None
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        if raw[0] not in " \t":
+            key = _unquote(raw.strip()[:-1].strip() if raw.strip().endswith(":") else raw.strip())
+            current = {"date": "", "tags": [], "public": False}
+            posts[key] = current
+            continue
+        if current is None:
+            continue
+        field, _, value = raw.strip().partition(":")
+        if field == "date":
+            current["date"] = value.strip()
+        elif field == "tags":
+            current["tags"] = _parse_tags(value)
+        elif field == "public":
+            current["public"] = value.strip().lower() == "true"
+    return posts
+
+
+def _config_block(name: str, date: str, tags: list[str], public: bool = False) -> str:
+    quoted = json.dumps(name, ensure_ascii=False)
+    tag_text = ", ".join(json.dumps(tag, ensure_ascii=False) for tag in tags)
+    flag = "true" if public else "false"
+    return f"{quoted}:\n  date: {date}\n  tags: [{tag_text}]\n  public: {flag}\n"
+
+
+def ensure_blog_config(files: list[Path]) -> dict[str, dict[str, object]]:
+    path = ROOT / "blog" / "posts.yaml"
+    legacy = ROOT / "blog" / "time.yaml"
+    config = load_blog_config(path)
+    if legacy.exists():
+        for name, date in load_legacy_times(legacy).items():
+            entry = config.setdefault(name, {"date": date, "tags": []})
+            if not entry.get("date"):
+                entry["date"] = date
+    today = datetime.now().strftime("%Y-%m-%d")
+    missing = [item.name for item in files if item.name not in config]
+    for name in missing:
+        config[name] = {"date": today, "tags": [], "public": False}
+    header = (
+        "# 博客文章配置。\n"
+        "# 已有条目的 date 不会在构建时改写。\n"
+        "# 新文章会追加到末尾：date 为当天，tags 留空，public 为 false。\n"
+        "# public 为 true 才出现在站点上。省略或 false 都不生成页面。\n"
+        "# tags 用方括号列出，点击标签会打开同标签的文章列表。\n\n"
+    )
+    if not path.exists():
+        known = list(config)
+        blocks = [_config_block(name, str(config[name].get("date") or today), list(config[name].get("tags") or []), bool(config[name].get("public"))) for name in known]
+        path.write_text(header + "\n".join(blocks), encoding="utf-8")
+    elif missing:
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write("".join(_config_block(name, today, []) for name in missing))
+    if legacy.exists():
+        legacy.unlink()
+    return config
+
+
+def load_legacy_times(path: Path) -> dict[str, str]:
+    times: dict[str, str] = {}
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -119,27 +200,12 @@ def load_blog_times(path: Path) -> dict[str, str]:
     return times
 
 
-def ensure_blog_times(files: list[Path]) -> dict[str, str]:
-    path = ROOT / "blog" / "time.yaml"
-    times = load_blog_times(path)
-    missing = [item.name for item in files if item.name not in times]
-    if not missing and path.exists():
-        return times
-    today = datetime.now().strftime("%Y-%m-%d")
-    for name in missing:
-        times[name] = today
-    lines = ["# 每篇博客的创建时间。已有日期不会在构建时改写，新文章会补上当天日期。", ""]
-    for name in sorted(times):
-        lines.append(f'"{name}": {times[name]}')
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return times
-
-
 @dataclass
 class Post:
     title: str
     stem: str
     date: str
+    tags: tuple[str, ...]
     summary: str
     html: str
     toc: str
@@ -176,7 +242,7 @@ def collect_posts() -> list[Post]:
     if not blog.exists():
         return []
     files = sorted(path for path in blog.rglob("*.md") if path.is_file())
-    times = ensure_blog_times(files)
+    meta = ensure_blog_config(files)
     used: set[str] = set()
     posts: list[Post] = []
     for path in files:
@@ -186,11 +252,16 @@ def collect_posts() -> list[Post]:
         used.add(stem)
         text = path.read_text(encoding="utf-8")
         doc = parse_markdown(text, str(path))
+        entry = meta.get(path.name) or {}
+        if not entry.get("public"):
+            continue
+        tags = tuple(tag for tag in entry.get("tags") or [] if isinstance(tag, str))
         posts.append(
             Post(
                 title=doc.title or stem,
                 stem=stem,
-                date=times.get(path.name) or file_date(path, {}),
+                date=str(entry.get("date") or "") or file_date(path, {}),
+                tags=tags,
                 summary=excerpt(text),
                 html=doc.html,
                 toc=doc.toc,
@@ -321,31 +392,58 @@ def side_toc(toc: str) -> str:
     return f'<nav class="article-toc" aria-label="目录">{toc}</nav>'
 
 
-def article_page(date: str, body: str, kicker_href: str = "", kicker: str = "") -> str:
+def tag_href(from_dir: Path, tag: str) -> str:
+    return dir_href(from_dir, DOCS / "tags" / tag)
+
+
+def post_href(from_dir: Path, post: Post) -> str:
+    return dir_href(from_dir, DOCS / "blog" / post.stem)
+
+
+def render_tags(tags: tuple[str, ...], from_dir: Path) -> str:
+    if not tags:
+        return ""
+    links = "".join(
+        f'<a class="tag" href="{html.escape(tag_href(from_dir, tag))}">{html.escape(tag)}</a>'
+        for tag in tags
+    )
+    return f'<span class="tag-list">{links}</span>'
+
+
+def article_page(date: str, body: str, kicker_href: str = "", kicker: str = "", tags: str = "") -> str:
     label = ""
     if kicker:
         label = f'<p class="kicker"><a href="{html.escape(kicker_href)}">{html.escape(kicker)}</a></p>'
-    when = f'<p class="meta"><time datetime="{date}">{date}</time></p>' if date else ""
+    bits = []
+    if date:
+        bits.append(f'<time datetime="{html.escape(date)}">{html.escape(date)}</time>')
+    if tags:
+        bits.append(tags)
+    when = f'<div class="article-meta">{"".join(bits)}</div>' if bits else ""
     return f'<article class="prose">{label}{when}{body}</article>'
 
 
-def blog_index(posts: list[Post]) -> str:
+def blog_index(posts: list[Post], from_dir: Path, heading: str = "博客", lede: str = "") -> str:
+    intro = f'<p class="lede">{html.escape(lede)}</p>' if lede else ""
+    head = f'<header class="page-head"><h1>{html.escape(heading)}</h1>{intro}</header>'
     if not posts:
-        return '<header class="page-head"><h1>博客</h1></header><p class="empty">还没有文章。</p>'
+        return head + '<p class="empty">还没有文章。</p>'
     items = []
     for post in posts:
-        href = encode_rel(f"blog/{post.stem}/")
         summary = f'<span class="post-excerpt">{html.escape(post.summary)}</span>' if post.summary else ""
+        tags = render_tags(post.tags, from_dir)
         items.append(
-            "<li><a href=\""
-            + html.escape(href)
+            '<li class="post-item"><a class="post-body" href="'
+            + html.escape(post_href(from_dir, post))
             + '"><span class="post-title">'
             + html.escape(post.title)
             + "</span>"
             + summary
-            + f'<time datetime="{post.date}">{post.date}</time></a></li>'
+            + "</a>"
+            + tags
+            + f'<time datetime="{html.escape(post.date)}">{html.escape(post.date)}</time></li>'
         )
-    return '<header class="page-head"><h1>博客</h1></header><ul class="post-list">' + "".join(items) + "</ul>"
+    return head + '<ul class="post-list">' + "".join(items) + "</ul>"
 
 
 def travel_index(trips: list[Trip], provinces: list[dict[str, str]]) -> str:
@@ -370,16 +468,7 @@ def travel_index(trips: list[Trip], provinces: list[dict[str, str]]) -> str:
             f'<path class="province{visited}" data-id="{html.escape(item["id"], quote=True)}" '
             f'd="{item["d"]}"></path>'
         )
-    rows = []
-    for trip in trips:
-        summary = f'<span class="trip-title">{html.escape(trip.summary or trip.title)}</span>'
-        rows.append(
-            f'<li><a href="{html.escape(trip.href_from_travel())}">'
-            f'<span class="trip-place">{html.escape(trip.place)}</span>{summary}'
-            f'<time datetime="{trip.date}">{trip.date}</time></a></li>'
-        )
     data = json.dumps(payload, ensure_ascii=False).replace("<", "\\u003c")
-    listing = '<ul class="trip-list">' + "".join(rows) + "</ul>" if rows else '<p class="empty">还没有游记。</p>'
     return (
         '<header class="page-head"><h1>游记</h1></header>'
         '<div class="map-frame"><svg id="china-map" viewBox="'
@@ -388,7 +477,6 @@ def travel_index(trips: list[Trip], provinces: list[dict[str, str]]) -> str:
         + "".join(shapes)
         + '</svg><div class="map-legend"><span><i class="swatch visited"></i>去过</span></div></div>'
         + '<div id="map-tip" class="map-tip" hidden></div>'
-        + listing
         + f'<script id="travel-data" type="application/json">{data}</script>'
     )
 
@@ -435,7 +523,7 @@ def build(live_port: int | None = None) -> tuple[int, int]:
             "TITLE": f"博客 · {SITE_NAME}",
             "HEADER": render_header(DOCS, "blog"),
             "WIDE": "",
-            "CONTENT": blog_index(posts),
+            "CONTENT": blog_index(posts, DOCS),
             "CODE_CSS": code_styles(DOCS, languages),
             "EXTRA": "",
             **asset_map(DOCS),
@@ -451,10 +539,30 @@ def build(live_port: int | None = None) -> tuple[int, int]:
                 "TITLE": html.escape(f"{post.title} · {SITE_NAME}"),
                 "HEADER": render_header(folder, "blog"),
                 "WIDE": "",
-                "CONTENT": article_page(post.date, post.html),
+                "CONTENT": article_page(post.date, post.html, tags=render_tags(post.tags, folder)),
                 "TOC": side_toc(post.toc),
                 "CODE_CSS": code_styles(folder, languages),
                 "EXTRA": MERMAID_SCRIPT if post.has_mermaid else "",
+                **asset_map(folder),
+            },
+        )
+
+    grouped: dict[str, list[Post]] = {}
+    for post in posts:
+        for tag in post.tags:
+            grouped.setdefault(tag, []).append(post)
+    for tag, tagged in grouped.items():
+        folder = DOCS / "tags" / tag
+        write_html(
+            folder / "index.html",
+            "layout.html",
+            {
+                "TITLE": html.escape(f"{tag} · 博客 · {SITE_NAME}"),
+                "HEADER": render_header(folder, "blog"),
+                "WIDE": "",
+                "CONTENT": blog_index(tagged, folder, heading=tag, lede=f"{len(tagged)} 篇"),
+                "CODE_CSS": code_styles(folder, languages),
+                "EXTRA": "",
                 **asset_map(folder),
             },
         )
@@ -498,7 +606,7 @@ def build(live_port: int | None = None) -> tuple[int, int]:
         {
             "TITLE": f"游记 · {SITE_NAME}",
             "HEADER": render_header(travel_dir, "travel"),
-            "WIDE": " wide",
+            "WIDE": " wide map-page",
             "CONTENT": travel_index(trips, provinces),
             "CODE_CSS": code_styles(travel_dir, languages),
             "EXTRA": "",
@@ -611,7 +719,8 @@ class _BlogWatch:
         if event.is_directory:
             return
         path = getattr(event, "dest_path", None) or event.src_path
-        if not str(path).lower().endswith(".md"):
+        name = Path(str(path)).name.lower()
+        if not (name.endswith(".md") or name == "posts.yaml"):
             return
         if self._timer:
             self._timer.cancel()
