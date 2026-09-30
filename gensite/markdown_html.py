@@ -117,6 +117,10 @@ def _highlight_code(block, file_path: str) -> bool:
 
         block.to_html = types.MethodType(mermaid_html, block)
         return True
+    if language.lower() == "demo":
+        fragment = _demo_html((block.input.get("code") or "").strip(), file_path)
+        block.to_html = types.MethodType(lambda self: fragment, block)
+        return False
 
     mapped = _ALIASES.get(language.lower(), language)
     if mapped != "UNKNOWN" and not syntaxlight.is_language_support(mapped):
@@ -146,6 +150,15 @@ def _highlight_code(block, file_path: str) -> bool:
     block.to_html = types.MethodType(code_html, block)
     _LANGUAGES.add(mapped)
     return False
+
+
+def _demo_html(target: str, file_path: str) -> str:
+    """Inline an HTML fragment referenced by a ```demo block, relative to the markdown file."""
+    path = (Path(file_path).parent if file_path else Path.cwd()) / target
+    if not target or not path.is_file():
+        print(f"demo missing: {file_path or 'markdown'}: {target}", flush=True)
+        return f'<div class="demo-missing">演示文件不存在：{html.escape(target)}</div>'
+    return f'<figure class="demo">{path.read_text(encoding="utf-8")}</figure>'
 
 
 def _highlight_marks(append_text: str | None) -> tuple[list[int], list[int]]:

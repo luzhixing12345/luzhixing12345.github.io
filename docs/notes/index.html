@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../css/site.css">
   <link rel="stylesheet" href="../css/c.css">
   <link rel="stylesheet" href="../css/css.css">
+  <link rel="stylesheet" href="../css/python.css">
   <link rel="stylesheet" href="../css/shell.css">
   <link rel="stylesheet" href="../css/txt.css">
 </head>
@@ -32,7 +33,7 @@
   
   <script>
 (function () {
-  var socket = new WebSocket("ws://127.0.0.1:8765");
+  var socket = new WebSocket("ws://127.0.0.1:8766");
   socket.onmessage = function (event) {
     if (event.data === "reload") location.reload();
   };

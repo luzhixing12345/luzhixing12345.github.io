@@ -1,0 +1,259 @@
+<div class="boot-demo">
+  <style>
+    .boot-demo {
+      --bd-fg: var(--fg, #09090b);
+      --bd-muted: var(--muted, #71717a);
+      --bd-line: var(--line, #e4e4e7);
+      --bd-soft: var(--soft, #f4f4f5);
+      --bd-ok: #16a34a;
+      --bd-wait: #d97706;
+      border: 1px solid var(--bd-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--bd-fg);
+      background: #fff;
+    }
+    .boot-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; }
+    .boot-demo .stage { background: var(--bd-soft); }
+    .boot-demo text { font-size: 13px; fill: var(--bd-fg); }
+    .boot-demo .small { font-size: 11px; fill: var(--bd-muted); }
+    .boot-demo .mono { font-family: var(--mono, ui-monospace, monospace); }
+    .boot-demo .body { fill: #fff; stroke: var(--bd-fg); stroke-width: 1.5; }
+    .boot-demo .fill { fill: var(--bd-fg); }
+    .boot-demo .ok { fill: var(--bd-ok); }
+    .boot-demo .hint { font-size: 12px; fill: var(--bd-muted); transition: opacity .3s; }
+
+    .boot-demo .dev { transition: opacity .35s, transform .35s; }
+    .boot-demo .dev[data-state="off"] { opacity: 0; transform: translateY(10px); pointer-events: none; }
+    .boot-demo .cable { fill: none; stroke: var(--bd-muted); stroke-width: 2; stroke-dasharray: 5 4; transition: stroke .3s; }
+    .boot-demo .status { font-size: 12px; transition: fill .3s; }
+    .boot-demo .dev[data-state="plugged"] .status { fill: var(--bd-muted); }
+    .boot-demo .dev[data-state="busy"] .status { fill: var(--bd-wait); }
+    .boot-demo .dev[data-state="busy"] .cable { stroke: var(--bd-wait); animation: bd-flow .6s linear infinite; }
+    .boot-demo .dev[data-state="ready"] .status { fill: var(--bd-ok); }
+    .boot-demo .dev[data-state="ready"] .cable { stroke: var(--bd-ok); stroke-dasharray: none; }
+    .boot-demo .on { opacity: 0; transition: opacity .4s; }
+    .boot-demo .dev[data-state="ready"] .on { opacity: 1; }
+    @keyframes bd-flow { to { stroke-dashoffset: -9; } }
+
+    .boot-demo .bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; border-top: 1px solid var(--bd-line);
+      font-size: 13px; color: var(--bd-muted);
+    }
+    .boot-demo button {
+      font: inherit; font-size: 13px; cursor: pointer;
+      padding: 5px 12px; border-radius: 6px;
+      border: 1px solid var(--bd-fg); background: var(--bd-fg); color: #fff;
+    }
+    .boot-demo button:disabled { opacity: .5; cursor: default; }
+    .boot-demo .log {
+      margin: 0; padding: 10px 14px; height: 7.5em; overflow: hidden;
+      list-style: none; background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.5;
+      display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .boot-demo .log .k { color: #a1a1aa; }
+    .boot-demo .log .todo { color: #fbbf24; }
+    .boot-demo .log .done { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .boot-demo * { transition: none !important; animation: none !important; }
+    }
+  </style>
+
+  <svg class="stage" viewBox="0 0 800 400" role="img" aria-label="一台只完成了内核初始化的电脑，点击依次接入外设">
+    <!-- 主机 -->
+    <g>
+      <rect class="body" x="340" y="80" width="120" height="240" rx="10"/>
+      <text x="400" y="108" text-anchor="middle">内核</text>
+      <rect x="358" y="122" width="84" height="26" rx="4" fill="#fff" stroke="#d4d4d8"/>
+      <text x="370" y="140" class="mono">CPU</text><text x="428" y="140" class="ok" text-anchor="end">✓</text>
+      <rect x="358" y="156" width="84" height="26" rx="4" fill="#fff" stroke="#d4d4d8"/>
+      <text x="370" y="174">内存</text><text x="428" y="174" class="ok" text-anchor="end">✓</text>
+      <text x="400" y="216" text-anchor="middle" class="small mono">PID 1</text>
+      <text x="400" y="232" text-anchor="middle" class="small mono">/sbin/init</text>
+      <rect x="334" y="143" width="6" height="14" class="fill"/><text x="330" y="138" class="small mono" text-anchor="end">SATA</text>
+      <rect x="334" y="273" width="6" height="14" class="fill"/><text x="330" y="268" class="small mono" text-anchor="end">USB</text>
+      <rect x="460" y="143" width="6" height="14" class="fill"/><text x="470" y="138" class="small mono">HDMI</text>
+      <rect x="460" y="273" width="6" height="14" class="fill"/><text x="470" y="268" class="small mono">RJ45</text>
+    </g>
+    <text class="hint" x="400" y="370" text-anchor="middle">点击画面，给这台刚开机的电脑接上外设</text>
+
+    <!-- SATA 硬盘 -->
+    <g class="dev" data-id="disk" data-state="off">
+      <path class="cable" d="M334 150 C 290 150, 270 150, 230 150"/>
+      <rect class="body" x="90" y="112" width="140" height="76" rx="6"/>
+      <circle cx="140" cy="150" r="24" fill="none" stroke="#d4d4d8" stroke-width="1.5"/>
+      <circle cx="140" cy="150" r="4" class="fill"/>
+      <circle class="on ok" cx="212" cy="176" r="4"/>
+      <text x="160" y="210" text-anchor="middle">SATA 硬盘</text>
+      <text class="status mono" x="160" y="228" text-anchor="middle"></text>
+    </g>
+
+    <!-- USB 鼠标 -->
+    <g class="dev" data-id="mouse" data-state="off">
+      <path class="cable" d="M334 280 C 270 280, 250 236, 170 236"/>
+      <rect class="body" x="140" y="236" width="60" height="88" rx="30"/>
+      <line x1="170" y1="236" x2="170" y2="270" stroke="#09090b" stroke-width="1.5"/>
+      <rect x="166" y="248" width="8" height="14" rx="4" class="fill"/>
+      <text x="170" y="346" text-anchor="middle">USB 鼠标</text>
+      <text class="status mono" x="170" y="364" text-anchor="middle"></text>
+    </g>
+
+    <!-- HDMI 显示器 -->
+    <g class="dev" data-id="monitor" data-state="off">
+      <path class="cable" d="M466 150 C 510 150, 530 150, 560 150"/>
+      <rect class="body" x="560" y="64" width="180" height="116" rx="6"/>
+      <rect x="570" y="74" width="160" height="96" rx="2" fill="#18181b"/>
+      <g class="on">
+        <text x="580" y="98" class="mono" fill="#4ade80" style="fill:#4ade80;font-size:11px">Debian GNU/Linux</text>
+        <text x="580" y="116" class="mono" style="fill:#e4e4e7;font-size:11px">login: _</text>
+      </g>
+      <rect x="638" y="180" width="24" height="16" class="fill"/>
+      <rect x="610" y="196" width="80" height="6" rx="3" class="fill"/>
+      <text x="650" y="222" text-anchor="middle">HDMI 显示器</text>
+      <text class="status mono" x="650" y="240" text-anchor="middle"></text>
+    </g>
+
+    <!-- 网卡 / 网线 -->
+    <g class="dev" data-id="net" data-state="off">
+      <path class="cable" d="M466 280 C 520 280, 540 290, 590 290"/>
+      <line x1="610" y1="268" x2="604" y2="246" stroke="#09090b" stroke-width="2"/>
+      <line x1="700" y1="268" x2="706" y2="246" stroke="#09090b" stroke-width="2"/>
+      <rect class="body" x="590" y="268" width="130" height="44" rx="6"/>
+      <circle cx="612" cy="290" r="3.5" fill="#d4d4d8"/>
+      <circle class="on ok" cx="612" cy="290" r="3.5"/>
+      <circle class="on ok" cx="626" cy="290" r="3.5"/>
+      <text x="690" y="295" text-anchor="middle" class="small mono">eth0</text>
+      <text x="655" y="334" text-anchor="middle">网卡 · 路由器</text>
+      <text class="status mono" x="655" y="352" text-anchor="middle"></text>
+    </g>
+  </svg>
+
+  <div class="bar">
+    <button type="button"></button>
+    <span class="caption"></span>
+  </div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var hint = root.querySelector(".hint");
+      var button = root.querySelector("button");
+      var caption = root.querySelector(".caption");
+      var log = root.querySelector(".log");
+
+      var devices = [
+        { id: "mouse", label: "插上 USB 鼠标", idle: "没有驱动", ready: "/dev/input/mouse0",
+          kernel: "usb 1-2: new full-speed USB device number 3 using xhci_hcd",
+          todo: "加载 usbhid 驱动，创建 /dev/input/mouse0",
+          script: "/etc/rc2.d/S10udev start" },
+        { id: "disk", label: "接上 SATA 硬盘", idle: "未挂载", ready: "/home 已挂载",
+          kernel: "ata2: SATA link up 6.0 Gbps (SStatus 133 SControl 300)",
+          todo: "fsck 检查文件系统，挂载到 /home",
+          script: "/etc/rc2.d/S20mountall start" },
+        { id: "monitor", label: "接上 HDMI 显示器", idle: "无信号", ready: "1920×1080",
+          kernel: "[drm] HDMI-A-1: EDID read, 1920x1080@60",
+          todo: "在屏幕上启动登录终端 getty",
+          script: "/etc/rc2.d/S99getty start" },
+        { id: "net", label: "插上网线", idle: "没有 IP", ready: "192.168.1.23",
+          kernel: "e1000e 0000:00:19.0 eth0: NIC Link is Up 1000 Mbps Full Duplex",
+          todo: "配置 eth0，用 DHCP 申请 IP 地址",
+          script: "/etc/rc2.d/S30networking start" }
+      ];
+      var order = ["mouse", "disk", "net", "monitor"];
+      var step = 0;
+      var running = false;
+
+      function node(id) { return svg.querySelector('.dev[data-id="' + id + '"]'); }
+      function find(id) { return devices.filter(function (d) { return d.id === id; })[0]; }
+
+      function set(id, state, text) {
+        var g = node(id);
+        g.setAttribute("data-state", state);
+        g.querySelector(".status").textContent = text || "";
+      }
+
+      function write(text, kind) {
+        var li = document.createElement("li");
+        li.textContent = text;
+        if (kind) li.className = kind;
+        log.appendChild(li);
+        while (log.children.length > 5) log.removeChild(log.firstChild);
+      }
+
+      function render() {
+        button.disabled = running;
+        if (running) return;
+        if (step < devices.length) {
+          button.textContent = devices[step].label;
+          caption.textContent = step === 0 ? "内核只把 CPU 和内存准备好了" : "内核看见了硬件，但还没人去配置它";
+        } else if (step === devices.length) {
+          button.textContent = "让 init 跑启动脚本";
+          caption.textContent = "这些“待办”都要交给用户态的 init";
+        } else {
+          button.textContent = "重来";
+          caption.textContent = "按编号一个接一个地跑完，系统才算可用";
+        }
+      }
+
+      function plug() {
+        var d = devices[step];
+        set(d.id, "plugged", d.idle);
+        write("kernel: " + d.kernel, "k");
+        write("  init 待办: " + d.todo, "todo");
+        hint.style.opacity = 0;
+        step += 1;
+        render();
+      }
+
+      function boot() {
+        running = true;
+        render();
+        write("init: 进入运行级别 2，按编号执行 /etc/rc2.d/", "k");
+        var i = 0;
+        (function next() {
+          if (i === order.length) {
+            write("init: 启动完成", "done");
+            running = false;
+            step += 1;
+            render();
+            return;
+          }
+          var d = find(order[i]);
+          set(d.id, "busy", "处理中…");
+          write(d.script);
+          setTimeout(function () {
+            set(d.id, "ready", d.ready);
+            write("[ OK ] " + d.ready, "done");
+            i += 1;
+            next();
+          }, 900);
+        })();
+      }
+
+      function reset() {
+        devices.forEach(function (d) { set(d.id, "off"); });
+        log.innerHTML = "";
+        write("kernel: CPU、内存初始化完成，执行 /sbin/init", "k");
+        hint.style.opacity = 1;
+        step = 0;
+        render();
+      }
+
+      function advance() {
+        if (running) return;
+        if (step < devices.length) plug();
+        else if (step === devices.length) boot();
+        else reset();
+      }
+
+      button.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      reset();
+    })();
+  </script>
+</div>

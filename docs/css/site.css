@@ -307,6 +307,20 @@ body.site {
   border-radius: var(--radius);
   cursor: zoom-in;
 }
+.prose .demo {
+  margin: 1.6em 0;
+}
+.prose .demo img {
+  cursor: default;
+}
+.prose .demo-missing {
+  margin: 1.2em 0;
+  padding: 12px 14px;
+  border: 1px dashed #dc2626;
+  border-radius: var(--radius);
+  color: #dc2626;
+  font-size: 14px;
+}
 .prose code,
 .prose pre {
   font-family: var(--mono);

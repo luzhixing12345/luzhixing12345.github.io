@@ -720,7 +720,7 @@ class _BlogWatch:
             return
         path = getattr(event, "dest_path", None) or event.src_path
         name = Path(str(path)).name.lower()
-        if not (name.endswith(".md") or name == "posts.yaml"):
+        if not (name.endswith((".md", ".html")) or name == "posts.yaml"):
             return
         if self._timer:
             self._timer.cancel()
