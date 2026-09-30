@@ -1,4 +1,4 @@
-# DNS：从 HOSTS.TXT 到全球域名系统
+# DNS：水面之下是冰山
 
 1983 年，如果你想把一台新机器接进 ARPANET，得先打一个电话。电话打到加州门洛帕克的斯坦福研究所（SRI），那里的网络信息中心（NIC）替整个网络登记主机名和地址。Paul Mockapetris 后来回忆这件事时说，问题在于“SRI 圣诞节那一周放假，平时下班也回家”（[Internet Hall of Fame 的采访](https://www.internethalloffame.org/2012/07/23/why-does-net-still-work-christmas-paul-mockapetris/)）。换句话说，1983 年的互联网，晚上六点以后和圣诞假期里是没法给新机器起名字的。
 

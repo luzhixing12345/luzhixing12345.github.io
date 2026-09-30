@@ -108,12 +108,22 @@
   tags: ["网络", "计算机考古"]
   public: false
 
-"DNS：从 HOSTS.TXT 到全球域名系统.md":
+"DNS：水面之下是冰山.md":
   date: 2026-09-28
   tags: ["网络", "计算机考古"]
   public: false
 
 "Welcome to nginx 背后的二十年.md":
   date: 2026-09-28
+  tags: ["网络", "计算机考古"]
+  public: false
+
+"PDF：一张逃出打印机的纸，怎样成了全世界的文件格式.md":
+  date: 2026-09-29
+  tags: ["计算机考古"]
+  public: false
+
+"NTP：是谁在替整个互联网校准时间？.md":
+  date: 2026-09-29
   tags: ["网络", "计算机考古"]
   public: false
