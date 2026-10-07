@@ -1,0 +1,145 @@
+<div class="icmp-tl-demo">
+  <style>
+    .icmp-tl-demo {
+      --tl-fg: var(--fg, #09090b);
+      --tl-muted: var(--muted, #71717a);
+      --tl-line: var(--line, #e4e4e7);
+      --tl-soft: var(--soft, #f4f4f5);
+      --tl-ok: #16a34a;
+      --tl-wait: #d97706;
+      --tl-bad: #dc2626;
+      border: 1px solid var(--tl-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--tl-fg);
+      background: #fff;
+    }
+    .icmp-tl-demo svg { display: block; width: 100%; height: auto; user-select: none; background: var(--tl-soft); }
+    .icmp-tl-demo text { font-size: 12px; fill: var(--tl-fg); }
+    .icmp-tl-demo .yr { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; fill: var(--tl-muted); }
+    .icmp-tl-demo .axis { stroke: #a1a1aa; stroke-width: 2; }
+    .icmp-tl-demo .band { opacity: .12; }
+    .icmp-tl-demo .band.born { fill: var(--tl-ok); }
+    .icmp-tl-demo .band.hurt { fill: var(--tl-bad); }
+    .icmp-tl-demo .band.back { fill: var(--tl-wait); }
+    .icmp-tl-demo .band-label { font-size: 11px; fill: var(--tl-muted); }
+    .icmp-tl-demo .stop { cursor: pointer; }
+    .icmp-tl-demo .stop circle { fill: #fff; stroke: var(--tl-fg); stroke-width: 1.5; transition: r .2s, fill .2s; }
+    .icmp-tl-demo .stop[data-kind="hurt"] circle { stroke: var(--tl-bad); }
+    .icmp-tl-demo .stop[data-kind="back"] circle { stroke: var(--tl-wait); }
+    .icmp-tl-demo .stop[data-on="1"] circle { fill: var(--tl-fg); r: 8; }
+    .icmp-tl-demo .stop[data-kind="hurt"][data-on="1"] circle { fill: var(--tl-bad); }
+    .icmp-tl-demo .stop[data-kind="back"][data-on="1"] circle { fill: var(--tl-wait); }
+    .icmp-tl-demo .stop[data-seen="1"] .name { font-weight: 600; }
+    .icmp-tl-demo .panel { padding: 12px 16px; border-top: 1px solid var(--tl-line); min-height: 4.6em; }
+    .icmp-tl-demo .panel .head { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .icmp-tl-demo .panel .head .mono { font-family: var(--mono, ui-monospace, monospace); color: var(--tl-muted); font-weight: 400; margin-right: 8px; }
+    .icmp-tl-demo .panel .body { font-size: 13px; line-height: 1.6; color: var(--tl-muted); }
+    .icmp-tl-demo .bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--tl-line); }
+    .icmp-tl-demo button {
+      font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--tl-fg); background: var(--tl-fg); color: #fff; white-space: nowrap;
+    }
+    .icmp-tl-demo button.ghost { background: #fff; color: var(--tl-fg); }
+    .icmp-tl-demo button:disabled { opacity: .4; cursor: default; }
+    .icmp-tl-demo .count { font-size: 12px; color: var(--tl-muted); margin-left: auto; font-family: var(--mono, ui-monospace, monospace); }
+    @media (prefers-reduced-motion: reduce) {
+      .icmp-tl-demo * { transition: none !important; animation: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 170" role="img" aria-label="ICMP 四十年时间线：从 ARPANET 的回声指令到 PLPMTUD，共十二站">
+    <rect class="band born" x="20" y="20" width="380" height="130" rx="6"/>
+    <rect class="band hurt" x="400" y="20" width="255" height="130" rx="6"/>
+    <rect class="band back" x="655" y="20" width="125" height="130" rx="6"/>
+    <text class="band-label" x="30" y="36">诞生与成名</text>
+    <text class="band-label" x="410" y="36">被当成凶器，被屏蔽</text>
+    <text class="band-label" x="665" y="36">扶正与架空</text>
+    <line class="axis" x1="30" y1="95" x2="770" y2="95"/>
+    <g class="stops"></g>
+  </svg>
+
+  <div class="panel" aria-live="polite">
+    <div class="head"></div>
+    <div class="body"></div>
+  </div>
+  <div class="bar">
+    <button type="button" class="ghost prev">上一站</button>
+    <button type="button" class="next">下一站</button>
+    <span class="count"></span>
+  </div>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var head = root.querySelector(".panel .head");
+      var body = root.querySelector(".panel .body");
+      var prev = root.querySelector(".prev");
+      var next = root.querySelector(".next");
+      var count = root.querySelector(".count");
+      var ns = "http://www.w3.org/2000/svg";
+      var stops = [
+        { y: "1972", n: "ECO / ERP", k: "born", t: "ARPANET 的主机—主机协议里，一台主机喊“你在吗”（ECO），对方必须原样回声（ERP）。ping 的曾祖父。" },
+        { y: "1981.4", n: "RFC 777", k: "born", t: "Jon Postel 把散落在网关协议里的控制消息收拢成独立的 ICMP，类型号 3、4、5、8、0 原样继承。" },
+        { y: "1981.9", n: "RFC 792", k: "born", t: "与 IPv4 同月定稿。“ICMP 是 IP 不可分割的一部分”“不对 ICMP 再发 ICMP”，两句话定下了此后四十年的性格。" },
+        { y: "1983", n: "ping", k: "born", t: "Mike Muuss 一个晚上写出千行小程序，顺手给 BSD 内核加上了原始 ICMP 套接字。" },
+        { y: "1988", n: "traceroute", k: "born", t: "Van Jacobson 借 TTL 超时把路径一跳一跳逼出来。因为路由器不肯为 ICMP 回 ICMP，只好改用 UDP。" },
+        { y: "1990", n: "PMTUD", k: "born", t: "RFC 1191 让路由器回一句“包太大，下一跳 MTU 是多少”。前提是这句话必须回得到发送方。" },
+        { y: "1996", n: "死亡之 Ping", k: "hurt", t: "一个超长的 ping 让十几种操作系统当场崩溃。病根在分片重组代码，可大家记住的是“挡掉 ping”。" },
+        { y: "1997", n: "Smurf", k: "hurt", t: "往广播地址发一个伪造源地址的 ping，整个网段一起朝受害者回声，流量被放大上百倍。" },
+        { y: "1998+", n: "屏蔽 ICMP", k: "hurt", t: "“能禁就禁”成为运维信条；XP SP2 默认不回 ping；源抑制等老消息被陆续废弃。" },
+        { y: "2000", n: "ICMP 黑洞", k: "hurt", t: "RFC 2923 给它起了名字：防火墙吃掉“包太大”，ping 得通，大包却永远消失。" },
+        { y: "1995–2007", n: "ICMPv6 / NDP", k: "back", t: "IPv6 把邻居发现、地址自动配置都架在 ICMPv6 上，禁了就上不了网。被嫌弃的信使成了管家。" },
+        { y: "2007–2020", n: "PLPMTUD", k: "back", t: "RFC 4821、RFC 8899：既然“包太大”靠不住，就自己一个包一个包地试。QUIC 从一开始就这么做。" }
+      ];
+      var x0 = 50, x1 = 750;
+      var g = svg.querySelector(".stops");
+      var cur = -1;
+      stops.forEach(function (s, i) {
+        var x = x0 + (x1 - x0) * i / (stops.length - 1);
+        var el = document.createElementNS(ns, "g");
+        el.setAttribute("class", "stop");
+        el.setAttribute("data-kind", s.k);
+        el.setAttribute("tabindex", "0");
+        el.setAttribute("role", "button");
+        el.setAttribute("aria-label", s.y + " " + s.n);
+        var up = i % 2 === 0;
+        el.innerHTML =
+          '<circle cx="' + x + '" cy="95" r="6"/>' +
+          '<text class="name" x="' + x + '" y="' + (up ? 72 : 124) + '" text-anchor="middle">' + s.n + '</text>' +
+          '<text class="yr" x="' + x + '" y="' + (up ? 58 : 140) + '" text-anchor="middle">' + s.y + '</text>';
+        el.addEventListener("click", function () { go(i); });
+        el.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(i); }
+        });
+        g.appendChild(el);
+        s.el = el;
+      });
+
+      function go(i) {
+        if (cur >= 0) stops[cur].el.setAttribute("data-on", "0");
+        cur = i;
+        var s = stops[i];
+        s.el.setAttribute("data-on", "1");
+        s.el.setAttribute("data-seen", "1");
+        head.innerHTML = '<span class="mono"></span><span class="nm"></span>';
+        head.querySelector(".mono").textContent = s.y;
+        head.querySelector(".nm").textContent = s.n;
+        body.textContent = s.t;
+        prev.disabled = i === 0;
+        next.textContent = i === stops.length - 1 ? "回到起点" : "下一站";
+        count.textContent = (i + 1) + " / " + stops.length;
+      }
+
+      prev.addEventListener("click", function () { if (cur > 0) go(cur - 1); });
+      next.addEventListener("click", function () { go(cur >= stops.length - 1 ? 0 : cur + 1); });
+
+      head.textContent = "点时间线上任意一站，或按“下一站”从头走一遍";
+      body.textContent = "颜色分三段：绿色是诞生与成名，红色是被滥用和被屏蔽，橙色是 IPv6 把它扶正、PLPMTUD 又绕开它。";
+      prev.disabled = true;
+      count.textContent = "0 / " + stops.length;
+    })();
+  </script>
+</div>

@@ -1,0 +1,64 @@
+<div class="icmp-udp-demo">
+  <style>
+    .icmp-udp-demo {
+      --ud-fg: var(--fg, #09090b);
+      --ud-muted: var(--muted, #71717a);
+      --ud-line: var(--line, #e4e4e7);
+      --ud-soft: var(--soft, #f4f4f5);
+      --ud-ok: #16a34a;
+      --ud-wait: #d97706;
+      --ud-bad: #dc2626;
+      border: 1px solid var(--ud-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--ud-fg);
+      background: #fff;
+    }
+    .icmp-udp-demo svg { display: block; width: 100%; height: auto; background: var(--ud-soft); }
+    .icmp-udp-demo text { font-size: 13px; fill: var(--ud-fg); }
+    .icmp-udp-demo .small { font-size: 11px; fill: var(--ud-muted); }
+    .icmp-udp-demo .mono { font-family: var(--mono, ui-monospace, monospace); }
+    .icmp-udp-demo .box { fill: #fff; stroke: var(--ud-fg); stroke-width: 1.5; }
+    .icmp-udp-demo .wire { stroke: #a1a1aa; stroke-width: 2; }
+    .icmp-udp-demo .go { stroke: var(--ud-fg); stroke-width: 2; fill: none; }
+    .icmp-udp-demo .back { stroke: var(--ud-ok); stroke-width: 2; fill: none; }
+    .icmp-udp-demo .pkt rect { fill: var(--ud-fg); }
+    .icmp-udp-demo .pkt text { fill: #fff; font-size: 11px; }
+    .icmp-udp-demo .reply rect { fill: var(--ud-ok); }
+    .icmp-udp-demo .x { fill: var(--ud-bad); font-size: 18px; font-weight: 700; }
+    .icmp-udp-demo .note rect { fill: #fef2f2; stroke: var(--ud-bad); }
+    .icmp-udp-demo .lane { fill: #fff; opacity: .6; }
+    .icmp-udp-demo .out { font-size: 12px; }
+    .icmp-udp-demo .out.bad { fill: var(--ud-bad); }
+    .icmp-udp-demo .out.ok { fill: var(--ud-ok); }
+  </style>
+
+  <svg viewBox="0 0 800 280" role="img" aria-label="traceroute 为什么用 UDP：用 ICMP 回显探测时，许多路由器按 RFC 792 拒绝为 ICMP 回 ICMP；改用 UDP 后路由器正常回超时">
+    <rect class="lane" x="10" y="14" width="780" height="120" rx="6"/>
+    <text x="24" y="34">第一个晚上：用 ICMP 回显当探测包</text>
+    <line class="wire" x1="130" y1="84" x2="680" y2="84"/>
+    <rect class="box" x="40" y="62" width="90" height="44" rx="6"/><text x="85" y="89" text-anchor="middle">LBL</text>
+    <rect class="box" x="370" y="64" width="90" height="40" rx="20"/><text x="415" y="89" text-anchor="middle">路由器</text>
+    <rect class="box" x="680" y="62" width="90" height="44" rx="6"/><text x="725" y="89" text-anchor="middle">目的地</text>
+    <g class="pkt" transform="translate(250 60)"><rect x="-70" y="-11" width="140" height="22" rx="4"/><text class="mono" x="0" y="4" text-anchor="middle">ICMP echo TTL=1</text></g>
+    <text class="x" x="415" y="58" text-anchor="middle">✕</text>
+    <g class="note">
+      <rect x="480" y="96" width="290" height="30" rx="4"/>
+      <text x="625" y="115" text-anchor="middle" class="small">“不对 ICMP 消息再发 ICMP 消息”——RFC 792</text>
+    </g>
+    <text class="out bad mono" x="24" y="124">1  * * *</text>
+
+    <rect class="lane" x="10" y="148" width="780" height="120" rx="6"/>
+    <text x="24" y="168">改用 UDP，打到一个没人听的高端口</text>
+    <line class="wire" x1="130" y1="218" x2="680" y2="218"/>
+    <rect class="box" x="40" y="196" width="90" height="44" rx="6"/><text x="85" y="223" text-anchor="middle">LBL</text>
+    <rect class="box" x="370" y="198" width="90" height="40" rx="20"/><text x="415" y="223" text-anchor="middle">路由器</text>
+    <rect class="box" x="680" y="196" width="90" height="44" rx="6"/><text x="725" y="223" text-anchor="middle">目的地</text>
+    <g class="pkt" transform="translate(250 194)"><rect x="-70" y="-11" width="140" height="22" rx="4"/><text class="mono" x="0" y="4" text-anchor="middle">UDP :33434 TTL=1</text></g>
+    <path class="back" d="M370 230 L146 230"/>
+    <path d="M136 230 l12 -6 v12 z" fill="#16a34a"/>
+    <g class="pkt reply" transform="translate(255 246)"><rect x="-70" y="-11" width="140" height="22" rx="4"/><text class="mono" x="0" y="4" text-anchor="middle">ICMP 超时 11/0</text></g>
+    <text class="out ok mono" x="480" y="258">1  路由器地址  1.2 ms</text>
+  </svg>
+</div>

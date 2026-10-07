@@ -1,0 +1,109 @@
+<div class="cube-vm-demo">
+  <style>
+    .cube-vm-demo {
+      --cv-fg: var(--fg, #09090b);
+      --cv-muted: var(--muted, #71717a);
+      --cv-line: var(--line, #e4e4e7);
+      --cv-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--cv-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .cube-vm-demo svg { display: block; width: 100%; height: auto; }
+    .cube-vm-demo text { font-size: 12px; fill: var(--cv-fg); }
+    .cube-vm-demo .s { font-size: 11px; fill: var(--cv-muted); }
+    .cube-vm-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .cube-vm-demo .b { font-weight: 600; font-size: 12.5px; }
+    .cube-vm-demo .proc { fill: var(--cv-soft); stroke: var(--cv-muted); stroke-dasharray: 5 4; }
+    .cube-vm-demo .box { fill: #fff; stroke: var(--cv-fg); stroke-width: 1.2; }
+    .cube-vm-demo .chip { fill: #fff; stroke: #a1a1aa; }
+    .cube-vm-demo .vm { fill: #fff7ed; stroke: #d97706; stroke-width: 1.4; }
+    .cube-vm-demo .gbox { fill: #fff; stroke: #fdba74; }
+    .cube-vm-demo .ln { fill: none; stroke: var(--cv-fg); stroke-width: 1.2; }
+    .cube-vm-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--cv-muted); border-top: 1px solid var(--cv-line);
+    }
+  </style>
+  <svg viewBox="0 0 800 420" role="img" aria-label="一个沙箱对应的宿主机进程：containerd-shim-cube-rs 内嵌 CubeHypervisor 和各个 virtio 设备，右侧是客户机里的 cube-init、cube-agent、envd 和容器">
+    <defs>
+      <marker id="cv-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+    </defs>
+
+    <rect class="proc" x="16" y="16" width="440" height="388" rx="8"/>
+    <text class="b" x="30" y="38">containerd-shim-cube-rs</text>
+    <text class="s" x="30" y="54">每个沙箱一个宿主机进程，跑在 seccomp 白名单里</text>
+
+    <rect class="box" x="30" y="66" width="412" height="40" rx="6"/>
+    <text x="44" y="84">Shim v2 服务</text>
+    <text class="s" x="44" y="99">对 containerd 表现成一个“容器任务”</text>
+
+    <rect class="box" x="30" y="118" width="412" height="272" rx="6"/>
+    <text class="b" x="44" y="138">CubeHypervisor（同一进程内的 VMM 库）</text>
+    <text class="s" x="44" y="154">vCPU 线程 · 内存管理 · 设备线程 · 暂停与快照</text>
+
+    <rect class="chip" x="44" y="166" width="188" height="38" rx="5"/>
+    <text x="54" y="182">virtio-pmem × 3</text>
+    <text class="s" x="54" y="197">OS · agent · 模板镜像，只读</text>
+    <rect class="chip" x="240" y="166" width="188" height="38" rx="5"/>
+    <text x="250" y="182">virtio-blk</text>
+    <text class="s" x="250" y="197">可写层，reflink 文件</text>
+
+    <rect class="chip" x="44" y="212" width="188" height="38" rx="5"/>
+    <text x="54" y="228">virtio-net</text>
+    <text class="s" x="54" y="243">接 TAP，后面是 CubeVS</text>
+    <rect class="chip" x="240" y="212" width="188" height="38" rx="5"/>
+    <text x="250" y="228">virtio-fs</text>
+    <text class="s" x="250" y="243">内置 virtiofsd 透传</text>
+
+    <rect class="chip" x="44" y="258" width="188" height="38" rx="5"/>
+    <text x="54" y="274">virtio-vsock</text>
+    <text class="s m" x="54" y="289">宿主侧是 cube.sock</text>
+    <rect class="chip" x="240" y="258" width="188" height="38" rx="5"/>
+    <text x="250" y="274">virtio-balloon</text>
+    <text class="s" x="250" y="289">空闲页上报，归还内存</text>
+
+    <rect class="chip" x="44" y="304" width="188" height="38" rx="5"/>
+    <text x="54" y="320">SysCtrl</text>
+    <text class="s" x="54" y="335">客户机报告“我就绪了”</text>
+    <rect class="chip" x="240" y="304" width="188" height="38" rx="5"/>
+    <text x="250" y="320">guest RAM</text>
+    <text class="s" x="250" y="335">MAP_PRIVATE 映射内存镜像</text>
+
+    <text class="s" x="44" y="372">下面是 KVM：</text>
+    <text class="s m" x="118" y="372">/dev/kvm（或 PVM）</text>
+
+    <rect class="vm" x="496" y="16" width="288" height="388" rx="8"/>
+    <text class="b" x="510" y="38">MicroVM</text>
+    <text class="s" x="510" y="54">自己的内核，按需裁剪的配置</text>
+
+    <rect class="gbox" x="510" y="70" width="260" height="46" rx="6"/>
+    <text x="522" y="88">cube-init（PID 1）</text>
+    <text class="s" x="522" y="104">挂 /proc、cgroup2，挂 pmem1，exec agent</text>
+
+    <rect class="gbox" x="510" y="128" width="260" height="62" rx="6"/>
+    <text x="522" y="146">cube-agent（接替 PID 1）</text>
+    <text class="s" x="522" y="162">源自 kata-agent；vsock 1024 上跑 ttrpc</text>
+    <text class="s" x="522" y="178">建沙箱、挂存储、起停容器、转发 stdio</text>
+
+    <rect class="gbox" x="510" y="202" width="260" height="62" rx="6"/>
+    <text x="522" y="220">容器（rustjail）</text>
+    <text class="s" x="522" y="236">rootfs 是 overlayfs：模板镜像 + 可写层</text>
+    <text class="s" x="522" y="252">OCI 的 seccomp、capabilities 照常生效</text>
+
+    <rect class="gbox" x="510" y="276" width="260" height="62" rx="6"/>
+    <text x="522" y="294">envd :49983</text>
+    <text class="s" x="522" y="310">模板构建时放进镜像的 E2B 守护进程</text>
+    <text class="s" x="522" y="326">执行命令、读写文件，经 CubeProxy 访问</text>
+
+    <path class="ln" d="M232 277 H236 V254 H476 V160 H509" marker-end="url(#cv-ar)"/>
+    <text class="s" x="493" y="154" text-anchor="middle">ttrpc</text>
+    <path class="ln" d="M233 323 H236 V300 H486 V100 H509" marker-start="url(#cv-ar)"/>
+    <text class="s" x="498" y="94" text-anchor="middle">就绪</text>
+  </svg>
+  <p class="cap">没有独立的 VMM 进程，也没有 Firecracker 那样的 jailer：Shim 和 VMM 是同一个宿主机进程，一个沙箱一份。控制指令走 vsock 上的 ttrpc，用户的命令和文件请求则走网络，从 CubeProxy 进到 envd。</p>
+</div>

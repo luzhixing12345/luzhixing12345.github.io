@@ -37,17 +37,6 @@
     .boot-demo .dev[data-state="ready"] .on { opacity: 1; }
     @keyframes bd-flow { to { stroke-dashoffset: -9; } }
 
-    .boot-demo .bar {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 14px; border-top: 1px solid var(--bd-line);
-      font-size: 13px; color: var(--bd-muted);
-    }
-    .boot-demo button {
-      font: inherit; font-size: 13px; cursor: pointer;
-      padding: 5px 12px; border-radius: 6px;
-      border: 1px solid var(--bd-fg); background: var(--bd-fg); color: #fff;
-    }
-    .boot-demo button:disabled { opacity: .5; cursor: default; }
     .boot-demo .log {
       margin: 0; padding: 10px 14px; height: 7.5em; overflow: hidden;
       list-style: none; background: #09090b; color: #d4d4d8;
@@ -131,10 +120,6 @@
     </g>
   </svg>
 
-  <div class="bar">
-    <button type="button"></button>
-    <span class="caption"></span>
-  </div>
   <ol class="log" aria-live="polite"></ol>
 
   <script>
@@ -142,24 +127,22 @@
       var root = document.currentScript.parentElement;
       var svg = root.querySelector("svg");
       var hint = root.querySelector(".hint");
-      var button = root.querySelector("button");
-      var caption = root.querySelector(".caption");
       var log = root.querySelector(".log");
 
       var devices = [
-        { id: "mouse", label: "插上 USB 鼠标", idle: "没有驱动", ready: "/dev/input/mouse0",
+        { id: "mouse", idle: "没有驱动", ready: "/dev/input/mouse0",
           kernel: "usb 1-2: new full-speed USB device number 3 using xhci_hcd",
           todo: "加载 usbhid 驱动，创建 /dev/input/mouse0",
           script: "/etc/rc2.d/S10udev start" },
-        { id: "disk", label: "接上 SATA 硬盘", idle: "未挂载", ready: "/home 已挂载",
+        { id: "disk", idle: "未挂载", ready: "/home 已挂载",
           kernel: "ata2: SATA link up 6.0 Gbps (SStatus 133 SControl 300)",
           todo: "fsck 检查文件系统，挂载到 /home",
           script: "/etc/rc2.d/S20mountall start" },
-        { id: "monitor", label: "接上 HDMI 显示器", idle: "无信号", ready: "1920×1080",
+        { id: "monitor", idle: "无信号", ready: "1920×1080",
           kernel: "[drm] HDMI-A-1: EDID read, 1920x1080@60",
           todo: "在屏幕上启动登录终端 getty",
           script: "/etc/rc2.d/S99getty start" },
-        { id: "net", label: "插上网线", idle: "没有 IP", ready: "192.168.1.23",
+        { id: "net", idle: "没有 IP", ready: "192.168.1.23",
           kernel: "e1000e 0000:00:19.0 eth0: NIC Link is Up 1000 Mbps Full Duplex",
           todo: "配置 eth0，用 DHCP 申请 IP 地址",
           script: "/etc/rc2.d/S30networking start" }
@@ -185,21 +168,6 @@
         while (log.children.length > 5) log.removeChild(log.firstChild);
       }
 
-      function render() {
-        button.disabled = running;
-        if (running) return;
-        if (step < devices.length) {
-          button.textContent = devices[step].label;
-          caption.textContent = step === 0 ? "内核只把 CPU 和内存准备好了" : "内核看见了硬件，但还没人去配置它";
-        } else if (step === devices.length) {
-          button.textContent = "让 init 跑启动脚本";
-          caption.textContent = "这些“待办”都要交给用户态的 init";
-        } else {
-          button.textContent = "重来";
-          caption.textContent = "按编号一个接一个地跑完，系统才算可用";
-        }
-      }
-
       function plug() {
         var d = devices[step];
         set(d.id, "plugged", d.idle);
@@ -207,32 +175,22 @@
         write("  init 待办: " + d.todo, "todo");
         hint.style.opacity = 0;
         step += 1;
-        render();
       }
 
-      function boot() {
+      function runScript() {
+        var i = step - devices.length;
+        var d = find(order[i]);
+        if (i === 0) write("init: 进入运行级别 2，按编号执行 /etc/rc2.d/", "k");
         running = true;
-        render();
-        write("init: 进入运行级别 2，按编号执行 /etc/rc2.d/", "k");
-        var i = 0;
-        (function next() {
-          if (i === order.length) {
-            write("init: 启动完成", "done");
-            running = false;
-            step += 1;
-            render();
-            return;
-          }
-          var d = find(order[i]);
-          set(d.id, "busy", "处理中…");
-          write(d.script);
-          setTimeout(function () {
-            set(d.id, "ready", d.ready);
-            write("[ OK ] " + d.ready, "done");
-            i += 1;
-            next();
-          }, 900);
-        })();
+        set(d.id, "busy", "处理中…");
+        write(d.script);
+        setTimeout(function () {
+          set(d.id, "ready", d.ready);
+          write("[ OK ] " + d.ready, "done");
+          if (i === order.length - 1) write("init: 启动完成", "done");
+          running = false;
+          step += 1;
+        }, 900);
       }
 
       function reset() {
@@ -241,17 +199,15 @@
         write("kernel: CPU、内存初始化完成，执行 /sbin/init", "k");
         hint.style.opacity = 1;
         step = 0;
-        render();
       }
 
       function advance() {
         if (running) return;
         if (step < devices.length) plug();
-        else if (step === devices.length) boot();
+        else if (step < devices.length + order.length) runScript();
         else reset();
       }
 
-      button.addEventListener("click", advance);
       svg.addEventListener("click", advance);
       reset();
     })();

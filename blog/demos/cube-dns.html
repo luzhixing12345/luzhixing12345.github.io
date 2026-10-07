@@ -1,0 +1,85 @@
+<div class="cube-dns-demo">
+  <style>
+    .cube-dns-demo {
+      --cq-fg: var(--fg, #09090b);
+      --cq-muted: var(--muted, #71717a);
+      --cq-line: var(--line, #e4e4e7);
+      --cq-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--cq-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .cube-dns-demo svg { display: block; width: 100%; height: auto; }
+    .cube-dns-demo text { font-size: 12px; fill: var(--cq-fg); }
+    .cube-dns-demo .s { font-size: 11px; fill: var(--cq-muted); }
+    .cube-dns-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .cube-dns-demo .head { fill: #fff; stroke: var(--cq-fg); stroke-width: 1.2; }
+    .cube-dns-demo .bpf { fill: #fffbeb; stroke: #d97706; stroke-width: 1.2; }
+    .cube-dns-demo .hd { font-size: 12.5px; font-weight: 600; }
+    .cube-dns-demo .life { stroke: #d4d4d8; stroke-dasharray: 4 4; }
+    .cube-dns-demo .msg { fill: none; stroke: var(--cq-fg); stroke-width: 1.2; }
+    .cube-dns-demo .ok { fill: none; stroke: #16a34a; stroke-width: 1.5; }
+    .cube-dns-demo .note { fill: var(--cq-soft); stroke: var(--cq-line); }
+    .cube-dns-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--cq-muted); border-top: 1px solid var(--cq-line);
+    }
+  </style>
+  <svg viewBox="0 0 800 400" role="img" aria-label="DNS 学习时序：from_cube 识别允许的域名查询并记录，from_world 从响应里取出 A 记录写入放行表">
+    <defs>
+      <marker id="cq-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+      <marker id="cq-ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#16a34a"/>
+      </marker>
+    </defs>
+
+    <line class="life" x1="70" y1="44" x2="70" y2="390"/>
+    <line class="life" x1="235" y1="44" x2="235" y2="390"/>
+    <line class="life" x1="405" y1="44" x2="405" y2="390"/>
+    <line class="life" x1="570" y1="44" x2="570" y2="390"/>
+    <line class="life" x1="730" y1="44" x2="730" y2="390"/>
+
+    <rect class="head" x="25" y="14" width="90" height="28" rx="5"/><text class="hd" x="70" y="33" text-anchor="middle">沙箱</text>
+    <rect class="bpf" x="180" y="14" width="110" height="28" rx="5"/><text class="hd m" x="235" y="33" text-anchor="middle">from_cube</text>
+    <rect class="head" x="345" y="14" width="120" height="28" rx="5"/><text class="hd" x="405" y="33" text-anchor="middle">BPF map</text>
+    <rect class="bpf" x="510" y="14" width="120" height="28" rx="5"/><text class="hd m" x="570" y="33" text-anchor="middle">from_world</text>
+    <rect class="head" x="680" y="14" width="100" height="28" rx="5"/><text class="hd" x="730" y="33" text-anchor="middle">DNS 服务器</text>
+
+    <path class="msg" d="M70 76 H234" marker-end="url(#cq-ar)"/>
+    <text x="152" y="70" text-anchor="middle" class="m">A? api.example.com</text>
+
+    <rect class="note" x="120" y="88" width="230" height="38" rx="4"/>
+    <text x="235" y="104" text-anchor="middle">反转成 moc.elpmaxe.ipa</text>
+    <text x="235" y="119" text-anchor="middle" class="s">在 dns_allow_v2 里做最长前缀匹配</text>
+
+    <path class="msg" d="M235 148 H404" marker-end="url(#cq-ar)"/>
+    <text x="320" y="142" text-anchor="middle">命中：记一条待学习查询</text>
+    <text x="320" y="162" text-anchor="middle" class="s m">dns_query_track · 10 秒</text>
+
+    <path class="msg" d="M235 186 H729" marker-end="url(#cq-ar)"/>
+    <text x="480" y="180" text-anchor="middle">查询本身照常 SNAT 出去（没命中也一样放行）</text>
+
+    <path class="msg" d="M730 216 H571" marker-end="url(#cq-ar)"/>
+    <text x="650" y="210" text-anchor="middle" class="m">A 203.0.113.7 TTL 60</text>
+
+    <rect class="note" x="455" y="228" width="230" height="38" rx="4"/>
+    <text x="570" y="244" text-anchor="middle">对上查询记录，只取 A 记录</text>
+    <text x="570" y="259" text-anchor="middle" class="s">TTL 不足 300 秒按 300 秒算</text>
+
+    <path class="msg" d="M570 288 H406" marker-end="url(#cq-ar)"/>
+    <text x="488" y="282" text-anchor="middle">写进 allow_out_v3</text>
+    <text x="488" y="302" text-anchor="middle" class="s">/32，或 L7 规则的 /48，带过期时间</text>
+
+    <path class="msg" d="M570 322 H71" marker-end="url(#cq-ar)"/>
+    <text x="320" y="316" text-anchor="middle">响应反向 NAT 后送回沙箱</text>
+
+    <path class="ok" d="M70 356 H234" marker-end="url(#cq-ar-g)"/>
+    <text x="152" y="350" text-anchor="middle" class="m">connect 203.0.113.7:443</text>
+    <text x="320" y="374" text-anchor="middle" class="s">from_cube 查 allow_out_v3 命中，放行</text>
+  </svg>
+  <p class="cap">eBPF 只旁听 DNS，不改查询也不改应答。真正挡住连接的是后面那张 IP 放行表：配合 deny_out 里的 0.0.0.0/0，没被学到的地址都连不出去。</p>
+</div>

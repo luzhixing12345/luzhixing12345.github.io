@@ -6,10 +6,6 @@
   <title>systemd：一个开机程序，凭什么让 Linux 吵了十五年 · 陆知行</title>
   <link rel="icon" href="https://raw.githubusercontent.com/learner-lu/picbed/master/logo.png">
   <link rel="stylesheet" href="../../css/site.css">
-  <link rel="stylesheet" href="../../css/c.css">
-  <link rel="stylesheet" href="../../css/css.css">
-  <link rel="stylesheet" href="../../css/python.css">
-  <link rel="stylesheet" href="../../css/shell.css">
   <link rel="stylesheet" href="../../css/txt.css">
 </head>
 <body class="site">
@@ -26,7 +22,7 @@
 </header>
 
   <main class="wrap">
-    <article class="prose"><div class="article-meta"><time datetime="2026-09-28">2026-09-28</time><span class="tag-list"><a class="tag" href="../../tags/Linux/">Linux</a><a class="tag" href="../../tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%80%83%E5%8F%A4/">计算机考古</a></span></div><h1 id="h1-0">systemd：一个开机程序，凭什么让 Linux 吵了十五年</h1><p>在 Linux 系统当中 PID 为 1 的进程是一个很特别的进程，我们把它称为 init 进程，它是 linux 内核在完成 cpu、内存等等的初始化之后启动的第一个用户态进程。init 进程相当重要，因为它需要负责拉起所有其他的用户态进程服务；同时这个进程也是整个用户空间生命周期的关键进程，一旦这个 PID = 1 的关键进程挂掉了，linux 内核会直接 panic，整个系统直接崩掉。今天绝大多数的 GNU/Linux 发行版上，包括 Fedora、Debian、Ubuntu、RHEL、Arch、openSUSE 的默认选择都是 systemd。</p><p>但事实上 systemd 自 2010 年诞生之初就争议不断，在内核社区、开源社区都吵的不可开交。2009 年它还是两个人在回程飞机上聊出来的想法。2011 年 Fedora 第一个把它设成默认。2014 年 Debian 为它吵到技术委员会的成员接连辞职，有人另起炉灶分叉出一个发行版。它的作者收到过死亡威胁，也领过安全圈的“最差厂商回应奖”。与此同时，它从一个开机程序长成了一整套系统组件，日志、设备、登录、网络、DNS、家目录都收了进来，时至今日 systemd 所做的事情已经远远超过内核要求一个 init 进程所做的事情。</p><p>今天我们按时间顺序讲讲这个故事。为什么旧的 init 为什么不够用？新的 systemd 又换了什么模型？它是怎样赢下各家发行版，怎样一路长大一路吵架的？以及今天 systemd 依然压着什么问题。</p><h2 id="h2-1">1983–2005：1 号进程的旧日子</h2><p>故事的开始我们要从最早期 Unix 的 init 进程的设计来讲起。init 进程启动的时候操作系统内核只是完成了最基础的初始化的功能，此时整个系统还并不能很好的提供服务，比如电脑上外接了一个 USB 接口的鼠标，需要xxx，电脑上还插了一个 SATA 接口的磁盘，还通过 HDMI 接口连接了显示器，还需要启动网卡，分配ip地址等等等等。</p><figure class="demo"><div class="boot-demo">
+    <article class="prose"><div class="article-meta"><time datetime="2026-09-28">2026-09-28</time><span class="tag-list"><a class="tag" href="../../tags/Linux/">Linux</a><a class="tag" href="../../tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%80%83%E5%8F%A4/">计算机考古</a></span></div><h1 id="h1-0">systemd：一个开机程序，凭什么让 Linux 吵了十五年</h1><p>在 Linux 系统当中 PID 为 1 的进程是一个很特别的进程，我们把它称为 init 进程，它是 linux 内核在完成 cpu、内存等等的初始化之后启动的第一个用户态进程。init 进程相当重要，作为第一个用户态进程，它需要负责拉起所有其他的用户态进程服务；同时这个进程也是整个用户空间生命周期的关键进程，一旦这个 PID = 1 的进程挂掉了，linux 内核会直接 panic，整个系统直接崩掉。今天绝大多数的 GNU/Linux 发行版上，包括 Fedora、Debian、Ubuntu、RHEL、Arch、openSUSE 等等在 init 进程的默认选择都是 systemd。</p><p>那既然这么多发行版同时选择了 systemd，那想必这一定是一个设计优雅、功能完备、测试健全、众望所归的明星项目，但事实上 systemd 自 2010 年诞生之初就一直争议不断，在内核社区、开源社区都吵的不可开交。2009 年它还是两个人在回程飞机上聊出来的想法。2014 年 Debian 为它吵到技术委员会的成员接连辞职，有人另起炉灶fork出一个发行版。它的作者收到过死亡威胁，也领过安全圈的“最差厂商回应奖”。与此同时，它从一个开机程序长成了一整套系统组件，日志、设备、登录、网络、DNS、家目录都收了进来，时至今日 systemd 所做的事情已经远远超过内核要求一个 init 进程所做的事情。</p><p>今天我们按时间顺序讲讲这个故事。旧的 init 存在什么问题？新的 systemd 又做了哪些事情？它是怎样赢下各家发行版，怎样一步步发展到现在的？</p><h2 id="h2-1">1983–2005：1 号进程的旧日子</h2><p>故事的开始我们要从最早期 Unix 的 init 进程的设计来讲起。init 进程启动的时候操作系统内核只是完成了最基础的初始化的功能，此时整个系统还并不能很好的提供服务。</p><figure class="demo"><div class="boot-demo">
   <style>
     .boot-demo {
       --bd-fg: var(--fg, #09090b);
@@ -65,17 +61,6 @@
     .boot-demo .dev[data-state="ready"] .on { opacity: 1; }
     @keyframes bd-flow { to { stroke-dashoffset: -9; } }
 
-    .boot-demo .bar {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 14px; border-top: 1px solid var(--bd-line);
-      font-size: 13px; color: var(--bd-muted);
-    }
-    .boot-demo button {
-      font: inherit; font-size: 13px; cursor: pointer;
-      padding: 5px 12px; border-radius: 6px;
-      border: 1px solid var(--bd-fg); background: var(--bd-fg); color: #fff;
-    }
-    .boot-demo button:disabled { opacity: .5; cursor: default; }
     .boot-demo .log {
       margin: 0; padding: 10px 14px; height: 7.5em; overflow: hidden;
       list-style: none; background: #09090b; color: #d4d4d8;
@@ -159,10 +144,6 @@
     </g>
   </svg>
 
-  <div class="bar">
-    <button type="button"></button>
-    <span class="caption"></span>
-  </div>
   <ol class="log" aria-live="polite"></ol>
 
   <script>
@@ -170,24 +151,22 @@
       var root = document.currentScript.parentElement;
       var svg = root.querySelector("svg");
       var hint = root.querySelector(".hint");
-      var button = root.querySelector("button");
-      var caption = root.querySelector(".caption");
       var log = root.querySelector(".log");
 
       var devices = [
-        { id: "mouse", label: "插上 USB 鼠标", idle: "没有驱动", ready: "/dev/input/mouse0",
+        { id: "mouse", idle: "没有驱动", ready: "/dev/input/mouse0",
           kernel: "usb 1-2: new full-speed USB device number 3 using xhci_hcd",
           todo: "加载 usbhid 驱动，创建 /dev/input/mouse0",
           script: "/etc/rc2.d/S10udev start" },
-        { id: "disk", label: "接上 SATA 硬盘", idle: "未挂载", ready: "/home 已挂载",
+        { id: "disk", idle: "未挂载", ready: "/home 已挂载",
           kernel: "ata2: SATA link up 6.0 Gbps (SStatus 133 SControl 300)",
           todo: "fsck 检查文件系统，挂载到 /home",
           script: "/etc/rc2.d/S20mountall start" },
-        { id: "monitor", label: "接上 HDMI 显示器", idle: "无信号", ready: "1920×1080",
+        { id: "monitor", idle: "无信号", ready: "1920×1080",
           kernel: "[drm] HDMI-A-1: EDID read, 1920x1080@60",
           todo: "在屏幕上启动登录终端 getty",
           script: "/etc/rc2.d/S99getty start" },
-        { id: "net", label: "插上网线", idle: "没有 IP", ready: "192.168.1.23",
+        { id: "net", idle: "没有 IP", ready: "192.168.1.23",
           kernel: "e1000e 0000:00:19.0 eth0: NIC Link is Up 1000 Mbps Full Duplex",
           todo: "配置 eth0，用 DHCP 申请 IP 地址",
           script: "/etc/rc2.d/S30networking start" }
@@ -213,21 +192,6 @@
         while (log.children.length > 5) log.removeChild(log.firstChild);
       }
 
-      function render() {
-        button.disabled = running;
-        if (running) return;
-        if (step < devices.length) {
-          button.textContent = devices[step].label;
-          caption.textContent = step === 0 ? "内核只把 CPU 和内存准备好了" : "内核看见了硬件，但还没人去配置它";
-        } else if (step === devices.length) {
-          button.textContent = "让 init 跑启动脚本";
-          caption.textContent = "这些“待办”都要交给用户态的 init";
-        } else {
-          button.textContent = "重来";
-          caption.textContent = "按编号一个接一个地跑完，系统才算可用";
-        }
-      }
-
       function plug() {
         var d = devices[step];
         set(d.id, "plugged", d.idle);
@@ -235,32 +199,22 @@
         write("  init 待办: " + d.todo, "todo");
         hint.style.opacity = 0;
         step += 1;
-        render();
       }
 
-      function boot() {
+      function runScript() {
+        var i = step - devices.length;
+        var d = find(order[i]);
+        if (i === 0) write("init: 进入运行级别 2，按编号执行 /etc/rc2.d/", "k");
         running = true;
-        render();
-        write("init: 进入运行级别 2，按编号执行 /etc/rc2.d/", "k");
-        var i = 0;
-        (function next() {
-          if (i === order.length) {
-            write("init: 启动完成", "done");
-            running = false;
-            step += 1;
-            render();
-            return;
-          }
-          var d = find(order[i]);
-          set(d.id, "busy", "处理中…");
-          write(d.script);
-          setTimeout(function () {
-            set(d.id, "ready", d.ready);
-            write("[ OK ] " + d.ready, "done");
-            i += 1;
-            next();
-          }, 900);
-        })();
+        set(d.id, "busy", "处理中…");
+        write(d.script);
+        setTimeout(function () {
+          set(d.id, "ready", d.ready);
+          write("[ OK ] " + d.ready, "done");
+          if (i === order.length - 1) write("init: 启动完成", "done");
+          running = false;
+          step += 1;
+        }, 900);
       }
 
       function reset() {
@@ -269,23 +223,21 @@
         write("kernel: CPU、内存初始化完成，执行 /sbin/init", "k");
         hint.style.opacity = 1;
         step = 0;
-        render();
       }
 
       function advance() {
         if (running) return;
         if (step < devices.length) plug();
-        else if (step === devices.length) boot();
+        else if (step < devices.length + order.length) runScript();
         else reset();
       }
 
-      button.addEventListener("click", advance);
       svg.addEventListener("click", advance);
       reset();
     })();
   </script>
 </div>
-</figure><p>Unix 的 init 从来是个不起眼的角色。今天说的 SysV init，设计来自 1983 年的 System V Unix，Linux 上那份 sysvinit 实现可以追到 1992 年（<a href="https://lwn.net/Articles/1008721/" target="_blank">Poettering 在 FOSDEM 2025 上的回顾</a>）。模型很直：内核执行 <code>/sbin/init</code>，init 读 <code>/etc/inittab</code>，按运行级别去跑 <code>/etc/rcN.d</code> 里的脚本。脚本名字前面的 <code>S01</code>、<code>S20</code> 就是顺序。要并行，就得靠人把号码错开，再在脚本里轮询“对方起来了没有”。LSB 后来给脚本加了依赖头，顺序好算了一点，执行体仍是 shell。</p><p>这套东西能用二十多年，是因为当时的机器是静态的。服务器一年重启不了几次，硬件插进机箱就不会再变。开机慢几十秒，没人在意。</p><p>它真正的缺陷在开机以后：脚本退出了，服务还在不在，init 并不知道。Unix 守护进程有一套老规矩，叫双重 fork：父进程拉起子进程，子进程再 fork 一次并让中间那个退出，孙进程被 init 收养，从而脱离终端和控制脚本。Apache 停掉时，一个已经双重 fork 走的 CGI 不会跟着死，init 也说不出它曾经属于 Apache。人们用 pid 文件补这个洞。pid 文件只是个数字，进程退出后这个数字可以被内核分给别人，拿它去发信号，可能打到一个无关的进程上。</p><p>所以 SysV 的策略是“按顺序执行一串命令”。它没有“sshd 这个服务”这样的对象，只有一次脚本运行。</p><h2 id="h2-2">2005–2009：大家开始嫌开机慢</h2><p>2000 年代中期，机器变了。笔记本要合盖、要连无线，U 盘、蓝牙、摄像头随时插拔，udev 接手了 <code>/dev</code> 的动态管理。设备什么时候出现、按什么顺序出现，每次开机都可能不一样。按编号排好的脚本放在这样的世界里很别扭。</p><p>各家开始各想各的办法。2005 年，苹果在 Mac OS X 10.4 Tiger 里放进了 <a href="https://en.wikipedia.org/wiki/Launchd" target="_blank">launchd</a>，一个进程接管了 init、inetd 和 cron 的活。同年 Solaris 10 带来了 SMF，用清单描述服务和依赖，面向企业运维。Linux 这边，Canonical 的 Scott James Remnant 在 2006 年写出了 <a href="https://en.wikipedia.org/wiki/Upstart_%28software%29" target="_blank">Upstart</a>，随 Ubuntu 6.10 发布。它用事件把开机拆开：网卡出现了，发出一个事件；syslog 起来了，再发出一个事件；别的任务写着“等这个事件再启动”。Fedora 9（2008）和后来的 RHEL 6 也用了它。有好几年，Upstart 看起来就是 Linux init 的未来。</p><p>2008 年 9 月的 Linux Plumbers Conference 上，Intel 的 Arjan van de Ven 和 Auke Kok <a href="https://lwn.net/Articles/299483/" target="_blank">做了一个演示</a>：一台 Eee PC 上网本，从按下电源到 Fedora 桌面就绪，五秒。开机比投影仪同步画面还快，两个人只好把上网本举起来给台下看。他们的做法不是换 init，而是给每个阶段定预算：内核一秒，系统服务一秒，X 一秒，桌面两秒，超了预算就砍。Arjan 在 <a href="https://lwn.net/Articles/299762/" target="_blank">LWN 评论区</a>补了一句挺扎心的话：Fedora 9 已经在用 Upstart，开机还是要 45 秒；并行开机能让你从 45 秒变成 43 秒，但变不成 5 秒。</p><p>这场演示把开机速度变成了一个可以量化、可以比赛的指标。也是在这个圈子里，Red Hat 的 Lennart Poettering 早先摆弄过一个自己写的 init，叫 Babykit。他那时已经因为 PulseAudio 和 Avahi 小有名气，也小有争议。Upstart 公开以后他就停了手。他后来<a href="https://www.linuxvoice.com/interview-lennart-poettering/" target="_blank">在一次采访里回忆</a>，那时大家都觉得 Upstart 就是未来：Scott 明白 init 必须是动态的，要能对事件作出反应，而不是 SysV 那种静态的东西。</p><h2 id="h2-3">2009：回程航班上的 Babykit</h2><p>转折发生在 2009 年的 Linux Plumbers Conference。Poettering 和 Kay Sievers 在会上看到 Upstart 并没有往前走。它的核心模型要求管理员自己把依赖翻译成一条条“某事件发生后做某事”，开发节奏慢，Canonical 还要求贡献者签版权转让协议，外面的开发者不太愿意往里投代码。回程的飞机上，两个人把一个新 init 的基本想法聊了出来（见 <a href="https://lwn.net/Articles/1008721/" target="_blank">LWN 对 FOSDEM 2025 演讲的报道</a>和演讲<a href="https://archive.fosdem.org/2025/events/attachments/fosdem-2025-6648-14-years-of-systemd/slides/238151/14_Years_cfrZhmg.pdf" target="_blank">幻灯片</a>）。回去以后，Poettering 翻出了 Babykit 的旧代码。</p><p>Babykit 这个名字是当时的风气。freedesktop 那一圈的守护进程流行叫某某 Kit，PolicyKit、ConsoleKit、PackageKit 都是，Poettering 说这大概是从苹果那边学来的。Babykit 的意思是进程的保姆。它后来改名 systemd，<a href="https://brand.systemd.io/" target="_blank">项目的品牌页</a>至今留着一段一本正经的拼写说明：写作 systemd，不是 SystemD，也不是 System D，因为它是一个 system daemon，Unix 上守护进程的名字全小写，后缀一个 d。要是嫌这个解释太简单，也可以把它念作（但千万别写成）“System Five Hundred”，因为 D 是罗马数字 500，正好接在 System V 后面。法语里的 Système D，指在困境里随机应变、凑合着把事办成的本事，不是正确拼法，“虽然还挺贴切”。</p><p>两个人分属两家公司。Poettering 在 Red Hat，写了大部分代码。Sievers 当时在 Novell（SUSE 的母公司），是 udev 的维护者，熟悉设备和内核那一侧。一个 init 的两位作者来自两家互相竞争的发行版厂商，这本身就是一个信号：它不打算只做某一家的东西。</p><p>Red Hat 起初并不买账。Poettering <a href="https://www.linuxvoice.com/interview-lennart-poettering/" target="_blank">在 Linux Voice 的采访里</a>说，管理层的态度是：我们走 Upstart，别做这个。他就在业余时间做。</p><h2 id="h2-4">2010 年 4 月：《Rethinking PID 1》</h2><p>2010 年 4 月 30 日，Poettering 在博客上发了一篇长文<a href="http://0pointer.de/blog/projects/systemd.html" target="_blank">《Rethinking PID 1》</a>，systemd 第一次公开亮相。这篇文章后来被引用了无数次，它的几条论证也成了之后十五年所有争论的底稿。</p><p>他先拿自己机器上的开机脚本开刀：<code>/etc/init.d</code> 里的脚本调用 <code>grep</code> 至少 77 次，<code>awk</code> 92 次，<code>sed</code> 74 次，<code>cut</code> 23 次。每次都是新建进程、找动态库、做一点字符串处理、退出。他还给了一把尺子：开机登录后打开终端，敲 <code>echo $$</code> 看第一个 shell 的 PID。他手上的 Linux 是 1823，Mac 是 154。这是他自己几台机器上的数，不是一份基准测试，但方向很清楚：开机时间耗在了成百个短命进程上。</p><p>接着是 launchd 教给他的东西：套接字激活。服务之间真正等待的，常常只是一个监听套接字，比如 syslog 的 <code>/dev/log</code>，D-Bus 的那只 Unix socket，CUPS 的 <code>cups.sock</code>。与其等对方进程宣布自己准备好了，不如由 PID 1 先把这些套接字建好，再在 <code>exec</code> 时把文件描述符交进去。客户端 <code>connect</code> 的时候，内核把连接放进套接字缓冲。对方还在启动，客户端只堵住这一个请求；对方崩溃了再被拉起来，套接字还在，客户端不一定察觉得到中间空过一拍。</p><p>这个想法 inetd 早就有，但 inetd 多用于每个 TCP 连接 fork 一个新进程，留下了“慢”的名声。launchd 用的是另一种：第一个连接到来时启动一个长期进程，后续连接仍由它接受。依赖关系因此退到次要位置，两边可以一起启动，同步点缩成一次具体的 <code>connect</code>。D-Bus 现成的总线激活效果类似：有人呼叫这个服务名，总线再把进程拉起来，并替调用方把这次请求排队。文件系统也能套用同样的想法，这是 Red Hat 的 Harald Hoyer 出的主意：对 <code>/home</code> 这种又大、又可能加密、开机服务却很少碰的文件系统，先挂一个 autofs，访问落到那一刻再阻塞，不必让所有服务等 fsck 结束。根分区不行，程序自己还在那上面。</p><p>套接字、总线、autofs，这三件事都是把“等一等”交给内核里已经存在的阻塞，而不是在 shell 里轮询。</p><p>第三块是 cgroup。2010 年时 cgroup 已经在内核里，本意是给一组进程加资源限额，最早是为容器准备的。子进程会继承父进程的组，除非有权限改 cgroup 文件系统，否则逃不掉。Poettering 把它拿来记账：每个服务一个组，组空了就说明进程都没了，比用 ptrace 盯住每一次 fork 便宜。那个双重 fork 走的 CGI，仍然待在 Apache 的组里。</p><p>最后他花了很大篇幅批评 Upstart。事件是一瞬间的，你要是在它发生之后才开始等，就等不到了。开机过程里硬件、磁盘、网络到达的顺序每次都可以不一样，用“谁发过什么事件”来拼接依赖，漏掉一次就是竞态。更根本的问题是，事件模型把依赖头脚倒置了：管理员脑子里想的是“A 需要 B”，写进 Upstart 却要变成“B 启动后启动 A”和“B 停止后停止 A”两条规则。init 不再朝着一个目标只做必要的事，而是每做完一步，就把所有可能跟在后面的事都做一遍。他想要的是状态：sshd 应该处于运行中，而不是“某个启动事件已经响过”。</p><p>文末的 FAQ 很有他的个人风格。“这是 Red Hat 的项目吗？”“不是，这是我个人的业余项目。这里的观点只代表我自己，不代表我的雇主，也不代表麦当劳叔叔。”“为什么不直接改进 Upstart，这不是 NIH（非我所创）吗？”他先答了一遍技术理由，然后补了一刀：别忘了，Upstart 里真有一个库就叫 NIH，那是 Upstart，不是 systemd。贡献者不需要签版权转让，“这一点和 Canonical/Upstart 很不一样！”还有一条当时没多少人在意：“它能跑在非 Linux 系统上吗？”“不太可能。”systemd 用了 epoll、signalfd、cgroup 这一堆 Linux 专有接口，他们也不打算合并别的平台的移植。这句话后来成了 BSD 用户和“可移植性”一派最常引用的罪状之一。</p><p><a href="https://lwn.net/Articles/389149/" target="_blank">LWN 当时记下了社区的情绪</a>：不少人还没从 PulseAudio 的折腾里缓过来，又听说 init 要再换一次，而 Upstart 看起来刚要普及。</p><h2 id="h2-5">它换掉的是什么模型</h2><p>先把故事停一下，看看 systemd 拿什么代替了那一长串 shell。</p><p>它不读脚本，而读 unit。常见的几种：</p><table><tr><th>类型</th><th>它代表的状态</th></tr><tr><td style="text-align:left">                service</td><td style="text-align:left">                一个进程树应该在运行，退出了怎么办</td></tr><tr><td style="text-align:left">                socket</td><td style="text-align:left">                一个监听套接字应该存在，有连接时可以把对应 service 拉起来</td></tr><tr><td style="text-align:left">                timer</td><td style="text-align:left">                某个时间点或某个间隔应该触发一次</td></tr><tr><td style="text-align:left">                mount / automount</td><td style="text-align:left">                一个挂载点应该出现，或者第一次访问时再挂</td></tr><tr><td style="text-align:left">                target</td><td style="text-align:left">                一组 unit 的集合，用来代替运行级别</td></tr><tr><td style="text-align:left">                slice</td><td style="text-align:left">                cgroup 树上的一截，用来套资源限额</td></tr></table><p><code>multi-user.target</code> 大致相当于以前的多用户运行级别，<code>graphical.target</code> 再往上加图形登录。管理员敲的 <code>systemctl enable</code>，多半是在 unit 里写了 <code>WantedBy=multi-user.target</code>，启用时建一个符号链接，让这个 target 被拉起时把服务带上。</p><p>依赖分成两件不同的事，混在一起就会配错。<code>After=</code> 只规定：如果两边都要启动，谁排在后面。<code>Wants=</code> 表示尽量把对方拉起来，对方失败了自己还可以继续。<code>Requires=</code> 表示对方失败或停掉时，自己也要停。只写 <code>Requires=</code> 不写 <code>After=</code>，两边会一起被拉起，先后仍无定义。只写 <code>After=</code> 不写 <code>Wants=</code>，顺序只在对方碰巧也启动时才有意义。</p><p>服务怎么算“起来了”，由 <code>Type=</code> 决定。<code>simple</code> 认为 <code>exec</code> 成功就算运行中，适合自己不 fork、马上就能接客的程序。<code>forking</code> 是迁就旧守护进程的：父进程退出才算子进程就绪，pid 文件那套问题还在。<code>notify</code> 要求进程用 <code>sd_notify</code> 送出 <code>READY=1</code>，在此之前 systemd 认为它还在启动。<code>oneshot</code> 跑完就结束，适合建目录、跑一次迁移。新写的程序被建议停在前台，不要双重 fork。监督者要的是自己的直接子进程，而不是一个故意把自己藏起来的孙进程。</p><p>一份最小的服务文件长这样：</p><pre class="language-txt"><code><span class="Token BraceDepth-0 LSQUAR_PAREN">[</span><span class="Token ID">Service</span><span class="Token BraceDepth-0 RSQUAR_PAREN">]</span><span class="Token LF">
+</figure><p>比如说我的电脑上通过 USB 接口外接了一个鼠标，另外我还接了一块sata接口的移动硬盘，我还接了一块显示器，以及我通过网线连接了路由器。 这些设备在开机的时候还都处于不可用的状态，但还需要加载 usbhid 驱动、创建 /dev/input/mouse0 这样的设备文件，程序才能读到鼠标的移动和点击；SATA 接口上插着一块磁盘，需要先用 fsck 检查文件系统是否完好，再把它挂载到 /home 这样的目录上，用户才能读写里面的文件；网线插在 RJ45 网口上，需要把网卡 eth0 配置起来，再通过 DHCP 向路由器申请一个 IP 地址，机器才能联网；HDMI 接口连着显示器，最后还要在屏幕上启动登录终端 getty，用户才能看到 login: 提示并登录进系统。这些事情内核都不管，全都落在 init 进程身上。</p><p>Unix 的 init 从来是个不起眼的角色。今天说的 SysV init，设计来自 1983 年的 System V Unix，Linux 上那份 sysvinit 实现可以追到 1992 年（<a href="https://lwn.net/Articles/1008721/" target="_blank">Poettering 在 FOSDEM 2025 上的回顾</a>）。模型很直：内核执行 <code>/sbin/init</code>，init 读 <code>/etc/inittab</code>，按运行级别去跑 <code>/etc/rcN.d</code> 里的脚本。脚本名字前面的 <code>S01</code>、<code>S20</code> 就是顺序。要并行，就得靠人把号码错开，再在脚本里轮询“对方起来了没有”。LSB 后来给脚本加了依赖头，顺序好算了一点，执行体仍是 shell。</p><p>这套东西能用二十多年，是因为当时的机器是静态的。服务器一年重启不了几次，硬件插进机箱就不会再变。开机慢几十秒，没人在意。</p><p>它真正的缺陷在开机以后：脚本退出了，服务还在不在，init 并不知道。Unix 守护进程有一套老规矩，叫双重 fork：父进程拉起子进程，子进程再 fork 一次并让中间那个退出，孙进程被 init 收养，从而脱离终端和控制脚本。Apache 停掉时，一个已经双重 fork 走的 CGI 不会跟着死，init 也说不出它曾经属于 Apache。人们用 pid 文件补这个洞。pid 文件只是个数字，进程退出后这个数字可以被内核分给别人，拿它去发信号，可能打到一个无关的进程上。</p><p>所以 SysV 的策略是“按顺序执行一串命令”。它没有“sshd 这个服务”这样的对象，只有一次脚本运行。</p><h2 id="h2-2">2005–2009：大家开始嫌开机慢</h2><p>2000 年代中期，机器变了。笔记本要合盖、要连无线，U 盘、蓝牙、摄像头随时插拔，udev 接手了 <code>/dev</code> 的动态管理。设备什么时候出现、按什么顺序出现，每次开机都可能不一样。按编号排好的脚本放在这样的世界里很别扭。</p><p>各家开始各想各的办法。2005 年，苹果在 Mac OS X 10.4 Tiger 里放进了 <a href="https://en.wikipedia.org/wiki/Launchd" target="_blank">launchd</a>，一个进程接管了 init、inetd 和 cron 的活。同年 Solaris 10 带来了 SMF，用清单描述服务和依赖，面向企业运维。Linux 这边，Canonical 的 Scott James Remnant 在 2006 年写出了 <a href="https://en.wikipedia.org/wiki/Upstart_%28software%29" target="_blank">Upstart</a>，随 Ubuntu 6.10 发布。它用事件把开机拆开：网卡出现了，发出一个事件；syslog 起来了，再发出一个事件；别的任务写着“等这个事件再启动”。Fedora 9（2008）和后来的 RHEL 6 也用了它。有好几年，Upstart 看起来就是 Linux init 的未来。</p><p>2008 年 9 月的 Linux Plumbers Conference 上，Intel 的 Arjan van de Ven 和 Auke Kok <a href="https://lwn.net/Articles/299483/" target="_blank">做了一个演示</a>：一台 Eee PC 上网本，从按下电源到 Fedora 桌面就绪，五秒。开机比投影仪同步画面还快，两个人只好把上网本举起来给台下看。他们的做法不是换 init，而是给每个阶段定预算：内核一秒，系统服务一秒，X 一秒，桌面两秒，超了预算就砍。Arjan 在 <a href="https://lwn.net/Articles/299762/" target="_blank">LWN 评论区</a>补了一句挺扎心的话：Fedora 9 已经在用 Upstart，开机还是要 45 秒；并行开机能让你从 45 秒变成 43 秒，但变不成 5 秒。</p><p>这场演示把开机速度变成了一个可以量化、可以比赛的指标。也是在这个圈子里，Red Hat 的 Lennart Poettering 早先摆弄过一个自己写的 init，叫 Babykit。他那时已经因为 PulseAudio 和 Avahi 小有名气，也小有争议。Upstart 公开以后他就停了手。他后来<a href="https://www.linuxvoice.com/interview-lennart-poettering/" target="_blank">在一次采访里回忆</a>，那时大家都觉得 Upstart 就是未来：Scott 明白 init 必须是动态的，要能对事件作出反应，而不是 SysV 那种静态的东西。</p><h2 id="h2-3">2009：回程航班上的 Babykit</h2><p>转折发生在 2009 年的 Linux Plumbers Conference。Poettering 和 Kay Sievers 在会上看到 Upstart 并没有往前走。它的核心模型要求管理员自己把依赖翻译成一条条“某事件发生后做某事”，开发节奏慢，Canonical 还要求贡献者签版权转让协议，外面的开发者不太愿意往里投代码。回程的飞机上，两个人把一个新 init 的基本想法聊了出来（见 <a href="https://lwn.net/Articles/1008721/" target="_blank">LWN 对 FOSDEM 2025 演讲的报道</a>和演讲<a href="https://archive.fosdem.org/2025/events/attachments/fosdem-2025-6648-14-years-of-systemd/slides/238151/14_Years_cfrZhmg.pdf" target="_blank">幻灯片</a>）。回去以后，Poettering 翻出了 Babykit 的旧代码。</p><p>Babykit 这个名字是当时的风气。freedesktop 那一圈的守护进程流行叫某某 Kit，PolicyKit、ConsoleKit、PackageKit 都是，Poettering 说这大概是从苹果那边学来的。Babykit 的意思是进程的保姆。它后来改名 systemd，<a href="https://brand.systemd.io/" target="_blank">项目的品牌页</a>至今留着一段一本正经的拼写说明：写作 systemd，不是 SystemD，也不是 System D，因为它是一个 system daemon，Unix 上守护进程的名字全小写，后缀一个 d。要是嫌这个解释太简单，也可以把它念作（但千万别写成）“System Five Hundred”，因为 D 是罗马数字 500，正好接在 System V 后面。法语里的 Système D，指在困境里随机应变、凑合着把事办成的本事，不是正确拼法，“虽然还挺贴切”。</p><p>两个人分属两家公司。Poettering 在 Red Hat，写了大部分代码。Sievers 当时在 Novell（SUSE 的母公司），是 udev 的维护者，熟悉设备和内核那一侧。一个 init 的两位作者来自两家互相竞争的发行版厂商，这本身就是一个信号：它不打算只做某一家的东西。</p><p>Red Hat 起初并不买账。Poettering <a href="https://www.linuxvoice.com/interview-lennart-poettering/" target="_blank">在 Linux Voice 的采访里</a>说，管理层的态度是：我们走 Upstart，别做这个。他就在业余时间做。</p><h2 id="h2-4">2010 年 4 月：《Rethinking PID 1》</h2><p>2010 年 4 月 30 日，Poettering 在博客上发了一篇长文<a href="http://0pointer.de/blog/projects/systemd.html" target="_blank">《Rethinking PID 1》</a>，systemd 第一次公开亮相。这篇文章后来被引用了无数次，它的几条论证也成了之后十五年所有争论的底稿。</p><p>他先拿自己机器上的开机脚本开刀：<code>/etc/init.d</code> 里的脚本调用 <code>grep</code> 至少 77 次，<code>awk</code> 92 次，<code>sed</code> 74 次，<code>cut</code> 23 次。每次都是新建进程、找动态库、做一点字符串处理、退出。他还给了一把尺子：开机登录后打开终端，敲 <code>echo $$</code> 看第一个 shell 的 PID。他手上的 Linux 是 1823，Mac 是 154。这是他自己几台机器上的数，不是一份基准测试，但方向很清楚：开机时间耗在了成百个短命进程上。</p><p>接着是 launchd 教给他的东西：套接字激活。服务之间真正等待的，常常只是一个监听套接字，比如 syslog 的 <code>/dev/log</code>，D-Bus 的那只 Unix socket，CUPS 的 <code>cups.sock</code>。与其等对方进程宣布自己准备好了，不如由 PID 1 先把这些套接字建好，再在 <code>exec</code> 时把文件描述符交进去。客户端 <code>connect</code> 的时候，内核把连接放进套接字缓冲。对方还在启动，客户端只堵住这一个请求；对方崩溃了再被拉起来，套接字还在，客户端不一定察觉得到中间空过一拍。</p><p>这个想法 inetd 早就有，但 inetd 多用于每个 TCP 连接 fork 一个新进程，留下了“慢”的名声。launchd 用的是另一种：第一个连接到来时启动一个长期进程，后续连接仍由它接受。依赖关系因此退到次要位置，两边可以一起启动，同步点缩成一次具体的 <code>connect</code>。D-Bus 现成的总线激活效果类似：有人呼叫这个服务名，总线再把进程拉起来，并替调用方把这次请求排队。文件系统也能套用同样的想法，这是 Red Hat 的 Harald Hoyer 出的主意：对 <code>/home</code> 这种又大、又可能加密、开机服务却很少碰的文件系统，先挂一个 autofs，访问落到那一刻再阻塞，不必让所有服务等 fsck 结束。根分区不行，程序自己还在那上面。</p><p>套接字、总线、autofs，这三件事都是把“等一等”交给内核里已经存在的阻塞，而不是在 shell 里轮询。</p><p>第三块是 cgroup。2010 年时 cgroup 已经在内核里，本意是给一组进程加资源限额，最早是为容器准备的。子进程会继承父进程的组，除非有权限改 cgroup 文件系统，否则逃不掉。Poettering 把它拿来记账：每个服务一个组，组空了就说明进程都没了，比用 ptrace 盯住每一次 fork 便宜。那个双重 fork 走的 CGI，仍然待在 Apache 的组里。</p><p>最后他花了很大篇幅批评 Upstart。事件是一瞬间的，你要是在它发生之后才开始等，就等不到了。开机过程里硬件、磁盘、网络到达的顺序每次都可以不一样，用“谁发过什么事件”来拼接依赖，漏掉一次就是竞态。更根本的问题是，事件模型把依赖头脚倒置了：管理员脑子里想的是“A 需要 B”，写进 Upstart 却要变成“B 启动后启动 A”和“B 停止后停止 A”两条规则。init 不再朝着一个目标只做必要的事，而是每做完一步，就把所有可能跟在后面的事都做一遍。他想要的是状态：sshd 应该处于运行中，而不是“某个启动事件已经响过”。</p><p>文末的 FAQ 很有他的个人风格。“这是 Red Hat 的项目吗？”“不是，这是我个人的业余项目。这里的观点只代表我自己，不代表我的雇主，也不代表麦当劳叔叔。”“为什么不直接改进 Upstart，这不是 NIH（非我所创）吗？”他先答了一遍技术理由，然后补了一刀：别忘了，Upstart 里真有一个库就叫 NIH，那是 Upstart，不是 systemd。贡献者不需要签版权转让，“这一点和 Canonical/Upstart 很不一样！”还有一条当时没多少人在意：“它能跑在非 Linux 系统上吗？”“不太可能。”systemd 用了 epoll、signalfd、cgroup 这一堆 Linux 专有接口，他们也不打算合并别的平台的移植。这句话后来成了 BSD 用户和“可移植性”一派最常引用的罪状之一。</p><p><a href="https://lwn.net/Articles/389149/" target="_blank">LWN 当时记下了社区的情绪</a>：不少人还没从 PulseAudio 的折腾里缓过来，又听说 init 要再换一次，而 Upstart 看起来刚要普及。</p><h2 id="h2-5">它换掉的是什么模型</h2><p>先把故事停一下，看看 systemd 拿什么代替了那一长串 shell。</p><p>它不读脚本，而读 unit。常见的几种：</p><table><tr><th>类型</th><th>它代表的状态</th></tr><tr><td style="text-align:left">                service</td><td style="text-align:left">                一个进程树应该在运行，退出了怎么办</td></tr><tr><td style="text-align:left">                socket</td><td style="text-align:left">                一个监听套接字应该存在，有连接时可以把对应 service 拉起来</td></tr><tr><td style="text-align:left">                timer</td><td style="text-align:left">                某个时间点或某个间隔应该触发一次</td></tr><tr><td style="text-align:left">                mount / automount</td><td style="text-align:left">                一个挂载点应该出现，或者第一次访问时再挂</td></tr><tr><td style="text-align:left">                target</td><td style="text-align:left">                一组 unit 的集合，用来代替运行级别</td></tr><tr><td style="text-align:left">                slice</td><td style="text-align:left">                cgroup 树上的一截，用来套资源限额</td></tr></table><p><code>multi-user.target</code> 大致相当于以前的多用户运行级别，<code>graphical.target</code> 再往上加图形登录。管理员敲的 <code>systemctl enable</code>，多半是在 unit 里写了 <code>WantedBy=multi-user.target</code>，启用时建一个符号链接，让这个 target 被拉起时把服务带上。</p><p>依赖分成两件不同的事，混在一起就会配错。<code>After=</code> 只规定：如果两边都要启动，谁排在后面。<code>Wants=</code> 表示尽量把对方拉起来，对方失败了自己还可以继续。<code>Requires=</code> 表示对方失败或停掉时，自己也要停。只写 <code>Requires=</code> 不写 <code>After=</code>，两边会一起被拉起，先后仍无定义。只写 <code>After=</code> 不写 <code>Wants=</code>，顺序只在对方碰巧也启动时才有意义。</p><p>服务怎么算“起来了”，由 <code>Type=</code> 决定。<code>simple</code> 认为 <code>exec</code> 成功就算运行中，适合自己不 fork、马上就能接客的程序。<code>forking</code> 是迁就旧守护进程的：父进程退出才算子进程就绪，pid 文件那套问题还在。<code>notify</code> 要求进程用 <code>sd_notify</code> 送出 <code>READY=1</code>，在此之前 systemd 认为它还在启动。<code>oneshot</code> 跑完就结束，适合建目录、跑一次迁移。新写的程序被建议停在前台，不要双重 fork。监督者要的是自己的直接子进程，而不是一个故意把自己藏起来的孙进程。</p><p>一份最小的服务文件长这样：</p><pre class="language-txt"><code><span class="Token BraceDepth-0 LSQUAR_PAREN">[</span><span class="Token ID">Service</span><span class="Token BraceDepth-0 RSQUAR_PAREN">]</span><span class="Token LF">
 </span><span class="Token ID">Type</span><span class="Token ASSIGN">=</span><span class="Token ID">notify</span><span class="Token LF">
 </span><span class="Token ID">ExecStart</span><span class="Token ASSIGN">=</span><span class="Token DIV">/</span><span class="Token ID">usr</span><span class="Token DIV">/</span><span class="Token ID">bin</span><span class="Token DIV">/</span><span class="Token ID">myapp</span><span class="Token LF">
 </span><span class="Token ID">Restart</span><span class="Token ASSIGN">=</span><span class="Token ID">on</span><span class="Token MINUS">-</span><span class="Token ID">failure</span><span class="Token LF">
@@ -307,14 +259,6 @@ import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.mi
 mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
 </script>
 
-  <script>
-(function () {
-  var socket = new WebSocket("ws://127.0.0.1:8766");
-  socket.onmessage = function (event) {
-    if (event.data === "reload") location.reload();
-  };
-})();
-</script>
-
+  
 </body>
 </html>

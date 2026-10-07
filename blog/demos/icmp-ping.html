@@ -1,0 +1,169 @@
+<div class="icmp-ping-demo">
+  <style>
+    .icmp-ping-demo {
+      --pg-fg: var(--fg, #09090b);
+      --pg-muted: var(--muted, #71717a);
+      --pg-line: var(--line, #e4e4e7);
+      --pg-soft: var(--soft, #f4f4f5);
+      --pg-ok: #16a34a;
+      --pg-wait: #d97706;
+      border: 1px solid var(--pg-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--pg-fg);
+      background: #fff;
+    }
+    .icmp-ping-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--pg-soft); }
+    .icmp-ping-demo text { font-size: 13px; fill: var(--pg-fg); }
+    .icmp-ping-demo .small { font-size: 11px; fill: var(--pg-muted); }
+    .icmp-ping-demo .mono { font-family: var(--mono, ui-monospace, monospace); }
+    .icmp-ping-demo .box { fill: #fff; stroke: var(--pg-fg); stroke-width: 1.5; transition: stroke .3s, fill .3s; }
+    .icmp-ping-demo .wire { stroke: #a1a1aa; stroke-width: 2; stroke-dasharray: 6 5; }
+    .icmp-ping-demo .wave { fill: none; stroke: var(--pg-wait); stroke-width: 1.5; opacity: .15; transition: opacity .3s; }
+    .icmp-ping-demo[data-busy="1"] .wave { opacity: .8; }
+    .icmp-ping-demo[data-echo="1"] .target { stroke: var(--pg-ok); fill: #f0fdf4; }
+    .icmp-ping-demo .pkt { opacity: 0; transition: transform .7s ease-in-out, opacity .15s; }
+    .icmp-ping-demo .pkt[data-on="1"] { opacity: 1; }
+    .icmp-ping-demo .pkt.req rect { fill: var(--pg-wait); }
+    .icmp-ping-demo .pkt.rep rect { fill: var(--pg-ok); }
+    .icmp-ping-demo .pkt text { fill: #fff; font-size: 11px; }
+    .icmp-ping-demo .bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--pg-line); }
+    .icmp-ping-demo button {
+      font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--pg-fg); background: var(--pg-fg); color: #fff; white-space: nowrap;
+    }
+    .icmp-ping-demo button:disabled { opacity: .5; cursor: default; }
+    .icmp-ping-demo .caption { font-size: 13px; color: var(--pg-muted); line-height: 1.5; }
+    .icmp-ping-demo .log {
+      margin: 0; padding: 10px 14px; height: 10.5em; overflow: hidden; list-style: none;
+      background: #09090b; color: #d4d4d8; font-family: var(--mono, ui-monospace, monospace);
+      font-size: 12px; line-height: 1.5; display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .icmp-ping-demo .log .k { color: #a1a1aa; }
+    .icmp-ping-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .icmp-ping-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 220" role="img" aria-label="ping 的声呐类比：发一个带时间戳的回显请求，听回声，算出往返时间">
+    <text x="400" y="26" text-anchor="middle" class="small">声呐发一声“乒”，听回声估距离；ping 发一个带时间戳的回显请求，等应答算往返时间</text>
+    <line class="wire" x1="150" y1="120" x2="650" y2="120"/>
+
+    <path class="wave" d="M170 80 A 50 50 0 0 1 170 160"/>
+    <path class="wave" d="M190 60 A 75 75 0 0 1 190 180"/>
+    <path class="wave" d="M210 42 A 100 100 0 0 1 210 198"/>
+
+    <rect class="box" x="40" y="86" width="110" height="68" rx="6"/>
+    <text x="95" y="112" text-anchor="middle">BRL 的主机</text>
+    <text x="95" y="130" text-anchor="middle" class="small mono">4.2a BSD</text>
+    <text x="95" y="146" text-anchor="middle" class="small">SOCK_RAW</text>
+
+    <rect class="box target" x="650" y="86" width="110" height="68" rx="6"/>
+    <text x="705" y="112" text-anchor="middle">vapor</text>
+    <text x="705" y="130" text-anchor="middle" class="small mono">128.63.240.80</text>
+    <text x="705" y="146" text-anchor="middle" class="small">内核自动应答</text>
+
+    <g class="pkt req">
+      <rect x="-62" y="-11" width="124" height="22" rx="4"/>
+      <text class="mono" x="0" y="4" text-anchor="middle">echo seq=0 t0</text>
+    </g>
+    <g class="pkt rep">
+      <rect x="-62" y="-11" width="124" height="22" rx="4"/>
+      <text class="mono" x="0" y="4" text-anchor="middle">reply seq=0 t0</text>
+    </g>
+    <text class="small rtt" x="400" y="200" text-anchor="middle"></text>
+  </svg>
+
+  <div class="bar">
+    <button type="button"></button>
+    <span class="caption" aria-live="polite"></span>
+  </div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var caption = root.querySelector(".caption");
+      var log = root.querySelector(".log");
+      var req = svg.querySelector(".pkt.req");
+      var rep = svg.querySelector(".pkt.rep");
+      var rtt = svg.querySelector(".rtt");
+      var times = [16, 9, 9, 8, 8];
+      var dur = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 700;
+      var seq = 0, busy = false, done = false;
+
+      function write(text, kind) {
+        var li = document.createElement("li");
+        li.textContent = text;
+        if (kind) li.className = kind;
+        log.appendChild(li);
+        while (log.children.length > 9) log.removeChild(log.firstChild);
+      }
+      function place(el, x, y, animate) {
+        el.style.transition = animate ? "" : "none";
+        el.style.transform = "translate(" + x + "px, " + y + "px)";
+        if (!animate) el.getBoundingClientRect();
+      }
+      function fly(el, from, to, cb) {
+        place(el, from[0], from[1], false);
+        el.setAttribute("data-on", "1");
+        requestAnimationFrame(function () { requestAnimationFrame(function () { place(el, to[0], to[1], true); }); });
+        setTimeout(function () { el.setAttribute("data-on", "0"); cb(); }, dur + 40);
+      }
+      function label() {
+        btn.textContent = done ? "重来" : (seq < times.length ? "ping 一次" : "按 Ctrl-C 结束");
+      }
+      function once() {
+        busy = true; btn.disabled = true;
+        root.setAttribute("data-busy", "1");
+        root.removeAttribute("data-echo");
+        req.querySelector("text").textContent = "echo seq=" + seq + " t0";
+        rep.querySelector("text").textContent = "reply seq=" + seq + " t0";
+        rtt.textContent = "";
+        caption.textContent = "发出回显请求（类型 8），数据区里写着发送时刻 t0。";
+        fly(req, [210, 98], [705, 98], function () {
+          root.setAttribute("data-echo", "1");
+          caption.textContent = "对方内核收到后把类型改成 0，数据原样奉还。";
+          fly(rep, [705, 142], [210, 142], function () {
+            root.removeAttribute("data-busy");
+            write("64 bytes from 128.63.240.80: icmp_seq=" + seq + " time=" + times[seq] + " ms");
+            rtt.textContent = "往返时间 = 现在 − t0 = " + times[seq] + " ms";
+            caption.textContent = "回声到了：用当前时间减去包里带回来的 t0，就是往返时间。";
+            seq += 1; busy = false; btn.disabled = false; label();
+          });
+        });
+      }
+      function stop() {
+        write("^C", "k");
+        write("----vapor.arl.army.mil PING Statistics----", "k");
+        write("5 packets transmitted, 5 packets received, 0% packet loss", "ok");
+        write("round-trip (ms)  min/avg/max = 8/10/16", "ok");
+        caption.textContent = "这几行是 Muuss 主页上贴出的真实输出。今天的 ping 打印格式，和它几乎没变。";
+        done = true; label();
+      }
+      function reset() {
+        seq = 0; done = false;
+        log.innerHTML = "";
+        rtt.textContent = "";
+        root.removeAttribute("data-echo");
+        write("% ping vapor.arl.army.mil", "k");
+        write("PING vapor.arl.army.mil (128.63.240.80): 56 data bytes");
+        caption.textContent = "点按钮或画面，发出第一个回显请求。";
+        label();
+      }
+      function advance() {
+        if (busy) return;
+        if (done) reset();
+        else if (seq < times.length) once();
+        else stop();
+      }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      reset();
+    })();
+  </script>
+</div>

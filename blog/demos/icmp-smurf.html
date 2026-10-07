@@ -1,0 +1,274 @@
+<div class="icmp-smurf-demo" data-step="0">
+  <style>
+    .icmp-smurf-demo {
+      --sm-fg: var(--fg, #09090b);
+      --sm-muted: var(--muted, #71717a);
+      --sm-line: var(--line, #e4e4e7);
+      --sm-soft: var(--soft, #f4f4f5);
+      --sm-ok: #16a34a;
+      --sm-wait: #d97706;
+      --sm-bad: #dc2626;
+      border: 1px solid var(--sm-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--sm-fg);
+      background: #fff;
+    }
+    .icmp-smurf-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--sm-soft); }
+    .icmp-smurf-demo text { font-size: 13px; fill: var(--sm-fg); }
+    .icmp-smurf-demo .small { font-size: 11px; fill: var(--sm-muted); }
+    .icmp-smurf-demo .mono { font-family: var(--mono, ui-monospace, monospace); }
+    .icmp-smurf-demo .box { fill: #fff; stroke: var(--sm-fg); stroke-width: 1.5; transition: stroke .3s, fill .3s; }
+    .icmp-smurf-demo .lan { fill: none; stroke: #a1a1aa; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .icmp-smurf-demo .wire { stroke: #a1a1aa; stroke-width: 2; }
+    .icmp-smurf-demo .bcast { stroke: var(--sm-wait); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: 0; transition: opacity .3s; }
+    .icmp-smurf-demo[data-step="2"] .bcast,
+    .icmp-smurf-demo[data-step="3"] .bcast { opacity: 1; }
+    .icmp-smurf-demo[data-step="2"] .host,
+    .icmp-smurf-demo[data-step="3"] .host { stroke: var(--sm-wait); fill: #fffbeb; }
+    .icmp-smurf-demo[data-step="3"] .victim { stroke: var(--sm-bad); fill: #fef2f2; }
+    .icmp-smurf-demo[data-step="4"] .router { stroke: var(--sm-ok); fill: #f0fdf4; }
+    .icmp-smurf-demo .acl { opacity: 0; transition: opacity .3s; }
+    .icmp-smurf-demo[data-step="4"] .acl { opacity: 1; }
+    .icmp-smurf-demo .acl text { fill: var(--sm-ok); }
+    .icmp-smurf-demo .pkt { opacity: 0; transition: transform .9s ease-in-out, opacity .2s; }
+    .icmp-smurf-demo .pkt[data-on="1"] { opacity: 1; }
+    .icmp-smurf-demo .pkt.req rect { fill: var(--sm-fg); }
+    .icmp-smurf-demo .pkt.rep rect { fill: var(--sm-bad); }
+    .icmp-smurf-demo .pkt text { fill: #fff; font-size: 10px; }
+    .icmp-smurf-demo .boom { opacity: 0; transition: opacity .2s; fill: var(--sm-bad); font-size: 18px; font-weight: 700; }
+    .icmp-smurf-demo .boom[data-on="1"] { opacity: 1; }
+    .icmp-smurf-demo .meter-bg { fill: #fff; stroke: var(--sm-line); }
+    .icmp-smurf-demo .meter { fill: var(--sm-bad); transition: width .9s ease-out; }
+    .icmp-smurf-demo .bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--sm-line); }
+    .icmp-smurf-demo button {
+      font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--sm-fg); background: var(--sm-fg); color: #fff; white-space: nowrap;
+    }
+    .icmp-smurf-demo button:disabled { opacity: .5; cursor: default; }
+    .icmp-smurf-demo .caption { font-size: 13px; color: var(--sm-muted); line-height: 1.5; }
+    .icmp-smurf-demo .log {
+      margin: 0; padding: 10px 14px; height: 9em; overflow: hidden; list-style: none;
+      background: #09090b; color: #d4d4d8; font-family: var(--mono, ui-monospace, monospace);
+      font-size: 12px; line-height: 1.5; display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .icmp-smurf-demo .log .k { color: #a1a1aa; }
+    .icmp-smurf-demo .log .w { color: #fbbf24; }
+    .icmp-smurf-demo .log .bad { color: #f87171; }
+    .icmp-smurf-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .icmp-smurf-demo * { transition: none !important; animation: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 340" role="img" aria-label="Smurf 攻击演示：攻击者伪造受害者地址向广播地址发 ping，网段内所有主机一起回应受害者">
+    <line class="wire" x1="160" y1="68" x2="330" y2="165"/>
+    <line class="wire" x1="160" y1="268" x2="330" y2="165"/>
+    <line class="wire" x1="430" y1="165" x2="520" y2="165"/>
+
+    <rect class="box" x="30" y="40" width="130" height="56" rx="6"/>
+    <text x="95" y="64" text-anchor="middle">攻击者</text>
+    <text x="95" y="82" text-anchor="middle" class="small mono">一条 T1 线路</text>
+
+    <rect class="box victim" x="30" y="236" width="130" height="64" rx="6"/>
+    <text x="95" y="260" text-anchor="middle">受害者</text>
+    <text x="95" y="278" text-anchor="middle" class="small mono">203.0.113.5</text>
+    <text x="95" y="292" text-anchor="middle" class="small">比如一台 IRC 服务器</text>
+    <rect class="meter-bg" x="30" y="312" width="300" height="12" rx="3"/>
+    <rect class="meter" x="30" y="312" width="0" height="12" rx="3"/>
+    <text class="small mono meter-label" x="340" y="322">涌入流量：0</text>
+
+    <rect class="box router" x="330" y="140" width="100" height="50" rx="25"/>
+    <text x="380" y="162" text-anchor="middle">路由器</text>
+    <text x="380" y="178" text-anchor="middle" class="small">放大网络的出口</text>
+    <g class="acl">
+      <text class="mono" x="380" y="216" text-anchor="middle" font-size="11">no ip directed-broadcast</text>
+    </g>
+
+    <rect class="lan" x="520" y="26" width="260" height="278" rx="8"/>
+    <text x="650" y="20" text-anchor="middle" class="small">“放大器”网段 198.51.100.0/24</text>
+    <g class="hosts"></g>
+
+    <g class="pkt req">
+      <rect x="-44" y="-10" width="88" height="20" rx="4"/>
+      <text class="mono" x="0" y="4" text-anchor="middle">echo → .255</text>
+    </g>
+    <g class="reps"></g>
+    <text class="boom" x="380" y="134" text-anchor="middle">✕</text>
+  </svg>
+
+  <div class="bar">
+    <button type="button"></button>
+    <span class="caption" aria-live="polite"></span>
+  </div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var caption = root.querySelector(".caption");
+      var log = root.querySelector(".log");
+      var req = svg.querySelector(".pkt.req");
+      var boom = svg.querySelector(".boom");
+      var meter = svg.querySelector(".meter");
+      var meterLabel = svg.querySelector(".meter-label");
+      var ns = "http://www.w3.org/2000/svg";
+      var dur = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 900;
+      var step = 0;
+      var busy = false;
+
+      var hosts = [];
+      var cols = [560, 680], rows = [50, 140, 230];
+      var n = 0;
+      rows.forEach(function (y) {
+        cols.forEach(function (x) {
+          n += 1;
+          hosts.push({ x: x + 40, y: y + 22, ip: "198.51.100." + (10 + n) });
+          var line = document.createElementNS(ns, "line");
+          line.setAttribute("class", "bcast");
+          line.setAttribute("x1", 430); line.setAttribute("y1", 165);
+          line.setAttribute("x2", x); line.setAttribute("y2", y + 22);
+          svg.querySelector(".hosts").appendChild(line);
+        });
+      });
+      hosts.forEach(function (h) {
+        var g = svg.querySelector(".hosts");
+        var r = document.createElementNS(ns, "rect");
+        r.setAttribute("class", "box host");
+        r.setAttribute("x", h.x - 40); r.setAttribute("y", h.y - 22);
+        r.setAttribute("width", 80); r.setAttribute("height", 44); r.setAttribute("rx", 6);
+        g.appendChild(r);
+        var t = document.createElementNS(ns, "text");
+        t.setAttribute("x", h.x); t.setAttribute("y", h.y + 4);
+        t.setAttribute("text-anchor", "middle");
+        t.setAttribute("class", "small mono");
+        t.textContent = "." + h.ip.split(".")[3];
+        g.appendChild(t);
+        var p = document.createElementNS(ns, "g");
+        p.setAttribute("class", "pkt rep");
+        p.innerHTML = '<rect x="-30" y="-9" width="60" height="18" rx="4"/><text class="mono" x="0" y="4" text-anchor="middle">reply</text>';
+        svg.querySelector(".reps").appendChild(p);
+        h.pkt = p;
+      });
+
+      var labels = [
+        "攻击者发出一个伪造的 ping",
+        "路由器把它变成广播",
+        "所有主机一起回应",
+        "在路由器上拆掉放大器",
+        "重来"
+      ];
+
+      function write(text, kind) {
+        var li = document.createElement("li");
+        li.textContent = text;
+        if (kind) li.className = kind;
+        log.appendChild(li);
+        while (log.children.length > 7) log.removeChild(log.firstChild);
+      }
+      function place(el, x, y, animate) {
+        el.style.transition = animate ? "" : "none";
+        el.style.transform = "translate(" + x + "px, " + y + "px)";
+        if (!animate) el.getBoundingClientRect();
+      }
+      function fly(el, from, to, done) {
+        place(el, from[0], from[1], false);
+        el.setAttribute("data-on", "1");
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { place(el, to[0], to[1], true); });
+        });
+        setTimeout(done, dur + 50);
+      }
+      function setStep(s) {
+        step = s;
+        root.setAttribute("data-step", String(s));
+        btn.textContent = labels[s];
+      }
+      function lock() { busy = true; btn.disabled = true; }
+      function unlock(next) { busy = false; btn.disabled = false; setStep(next); }
+      function meterTo(w, text) {
+        meter.setAttribute("width", w);
+        meterLabel.textContent = text;
+      }
+
+      function stepSend() {
+        lock();
+        write("attacker# hping3 -1 -a 203.0.113.5 198.51.100.255", "k");
+        caption.textContent = "只有一个包：ICMP 回显请求，目的地址是放大网段的广播地址，源地址伪造成受害者。";
+        fly(req, [95, 68], [380, 165], function () {
+          req.setAttribute("data-on", "0");
+          write("IP 203.0.113.5 > 198.51.100.255: ICMP echo request, id 1, seq 1");
+          unlock(1);
+        });
+      }
+      function stepBroadcast() {
+        lock();
+        root.setAttribute("data-step", "2");
+        write("router: 198.51.100.255 是直连网段的广播地址，转成以太网广播 ff:ff:ff:ff:ff:ff", "w");
+        caption.textContent = "1999 年以前的路由器默认转发这种“定向广播”。网段里每一台主机都收到了这个请求。";
+        setTimeout(function () { unlock(2); }, 400);
+      }
+      function stepReply() {
+        lock();
+        root.setAttribute("data-step", "3");
+        caption.textContent = "每台主机都老老实实回一个应答，回给它们以为的发送者，也就是受害者。";
+        var left = hosts.length;
+        hosts.forEach(function (h, i) {
+          setTimeout(function () {
+            fly(h.pkt, [h.x, h.y], [95 + (i - 2.5) * 14, 268], function () {
+              h.pkt.setAttribute("data-on", "0");
+              write("IP " + h.ip + " > 203.0.113.5: ICMP echo reply, id 1, seq 1", "bad");
+              left -= 1;
+              meterTo(300 * (hosts.length - left) / hosts.length, "涌入流量：" + (hosts.length - left) + " 个应答");
+              if (left === 0) {
+                write("1 个请求换来 6 个应答。放大网络有 100 台主机时，768 kb/s 变成 76.8 Mb/s。", "w");
+                caption.textContent = "攻击者每发一个包，受害者就收到 N 个。换成一个有上百台主机的网段，一条 T1 就能淹没一台服务器。";
+                unlock(3);
+              }
+            });
+          }, i * 120);
+        });
+      }
+      function stepFix() {
+        lock();
+        root.setAttribute("data-step", "4");
+        meterTo(0, "涌入流量：0");
+        write("router(config-if)# no ip directed-broadcast", "k");
+        caption.textContent = "RFC 2644 把默认值改成不转发定向广播，思科从 IOS 12.0 起默认就是这一行。";
+        fly(req, [95, 68], [380, 165], function () {
+          req.setAttribute("data-on", "0");
+          boom.setAttribute("data-on", "1");
+          write("router: 丢弃发往 198.51.100.255 的定向广播", "ok");
+          caption.textContent = "请求在路由器上就被丢掉，放大器没了。ping 和 traceroute 照样能用，根本不需要把 ICMP 全禁掉。";
+          unlock(4);
+        });
+      }
+      function reset() {
+        boom.setAttribute("data-on", "0");
+        req.setAttribute("data-on", "0");
+        hosts.forEach(function (h) { h.pkt.setAttribute("data-on", "0"); });
+        meterTo(0, "涌入流量：0");
+        log.innerHTML = "";
+        write("# 受害者 203.0.113.5，放大网段 198.51.100.0/24", "k");
+        caption.textContent = "点按钮或画面，看一个包怎样变成一群包。";
+        setStep(0);
+      }
+
+      function advance() {
+        if (busy) return;
+        if (step === 0) stepSend();
+        else if (step === 1) stepBroadcast();
+        else if (step === 2) stepReply();
+        else if (step === 3) stepFix();
+        else reset();
+      }
+
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      reset();
+    })();
+  </script>
+</div>

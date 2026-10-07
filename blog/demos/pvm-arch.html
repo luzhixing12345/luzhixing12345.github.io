@@ -1,0 +1,124 @@
+<div class="pvm-arch-demo">
+  <style>
+    .pvm-arch-demo {
+      --pa-fg: var(--fg, #09090b);
+      --pa-muted: var(--muted, #71717a);
+      --pa-line: var(--line, #e4e4e7);
+      --pa-soft: var(--soft, #f4f4f5);
+      --pa-hi: #2563eb;
+      border: 1px solid var(--pa-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--pa-fg);
+    }
+    .pvm-arch-demo svg { display: block; width: 100%; height: auto; background: var(--pa-soft); }
+    .pvm-arch-demo text { font-size: 12.5px; fill: var(--pa-fg); }
+    .pvm-arch-demo .s { font-size: 11px; fill: var(--pa-muted); }
+    .pvm-arch-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .pvm-arch-demo .b { font-weight: 600; }
+    .pvm-arch-demo .zone { fill: #fff; stroke: var(--pa-line); }
+    .pvm-arch-demo .band { fill: var(--pa-soft); stroke: none; }
+    .pvm-arch-demo .zl { font-size: 12px; font-weight: 600; fill: var(--pa-muted); }
+    .pvm-arch-demo .ring { font-size: 11px; font-weight: 600; fill: var(--pa-hi); }
+    .pvm-arch-demo .box { fill: #fff; stroke: var(--pa-fg); stroke-width: 1.2; }
+    .pvm-arch-demo .vm { fill: #fff7ed; stroke: #d97706; stroke-width: 1.4; }
+    .pvm-arch-demo .gbox { fill: #fff; stroke: #d97706; stroke-width: 1.2; }
+    .pvm-arch-demo .sw { fill: #eff6ff; stroke: var(--pa-hi); stroke-width: 1.4; }
+    .pvm-arch-demo .l0 { fill: #f4f4f5; stroke: #a1a1aa; stroke-dasharray: 4 3; }
+    .pvm-arch-demo .ar { fill: none; stroke: var(--pa-fg); stroke-width: 1.3; }
+    .pvm-arch-demo .arh { fill: none; stroke: var(--pa-hi); stroke-width: 1.6; }
+    .pvm-arch-demo .ard { fill: none; stroke: #a1a1aa; stroke-width: 1.3; stroke-dasharray: 4 3; }
+    .pvm-arch-demo .cap {
+      margin: 0; padding: 10px 14px 12px; font-size: 13px; line-height: 1.7;
+      border-top: 1px solid var(--pa-line);
+    }
+  </style>
+
+  <svg viewBox="0 0 800 440" role="img" aria-label="PVM 架构：L1 云主机里，客户机的用户态和内核都运行在硬件 ring3，各用一套影子页表；它们的系统调用、超级调用、异常和中断都先进入 h_ring0 的 switcher，再以函数返回的形式交给 kvm-pvm.ko 处理；L0 只看到一台普通虚拟机">
+    <defs>
+      <marker id="pa-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+      <marker id="pa-arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#2563eb"/>
+      </marker>
+    </defs>
+
+    <rect class="zone" x="14" y="14" width="772" height="338" rx="8"/>
+    <text class="zl" x="26" y="32">L1：一台普通云主机（VMX non-root），云厂商没有开放嵌套虚拟化</text>
+
+    <rect class="band" x="24" y="42" width="752" height="150" rx="6"/>
+    <text class="ring" x="34" y="58">h_ring3</text>
+    <rect class="band" x="24" y="202" width="752" height="140" rx="6"/>
+    <text class="ring" x="34" y="218">h_ring0</text>
+
+    <rect class="box" x="34" y="72" width="170" height="104" rx="6"/>
+    <text class="b" x="119" y="96" text-anchor="middle">VMM 进程</text>
+    <text class="s" x="119" y="116" text-anchor="middle">cube-hypervisor 等</text>
+    <text class="s" x="119" y="132" text-anchor="middle">打开 /dev/kvm</text>
+    <text class="s" x="119" y="148" text-anchor="middle">virtio 设备、vCPU 线程</text>
+    <text class="s" x="119" y="164" text-anchor="middle">和硬件 KVM 时一样</text>
+
+    <rect class="vm" x="226" y="50" width="540" height="134" rx="8"/>
+    <text class="b" x="240" y="70">L2 沙箱（PVM 客户机）</text>
+    <text class="s" x="758" y="70" text-anchor="end">内核编译成位置无关（PIE），运行在保留出来的地址段</text>
+
+    <rect class="gbox" x="242" y="82" width="246" height="88" rx="6"/>
+    <text class="b" x="365" y="104" text-anchor="middle">客户机用户态（v_ring3）</text>
+    <text class="s" x="365" y="124" text-anchor="middle">容器里的进程</text>
+    <text class="s" x="365" y="140" text-anchor="middle">影子页表：用户那一份</text>
+    <text class="s" x="365" y="156" text-anchor="middle">看不到客户机内核的地址</text>
+
+    <rect class="gbox" x="504" y="82" width="246" height="88" rx="6"/>
+    <text class="b" x="627" y="104" text-anchor="middle">客户机内核（v_ring0）</text>
+    <text class="s" x="627" y="124" text-anchor="middle">硬件上同样是 ring3</text>
+    <text class="s" x="627" y="140" text-anchor="middle">影子页表：内核那一份</text>
+    <text class="s" x="627" y="156" text-anchor="middle">特权操作改走超级调用</text>
+
+    <rect class="sw" x="226" y="226" width="540" height="40" rx="6"/>
+    <text class="b" x="240" y="251">switcher</text>
+    <text class="s" x="306" y="251">宿主内核入口代码里的一段分支 + 每 CPU 的切换状态，在三套页表里映射到同一地址</text>
+
+    <rect class="box" x="226" y="282" width="264" height="50" rx="6"/>
+    <text class="b m" x="240" y="302">kvm.ko</text>
+    <text class="s" x="240" y="320">vCPU、影子 MMU、APIC 和指令模拟</text>
+    <rect class="box" x="502" y="282" width="264" height="50" rx="6"/>
+    <text class="b m" x="516" y="302">kvm-pvm.ko</text>
+    <text class="s" x="516" y="320">新的 vendor：进出客户机、事件注入、超级调用</text>
+
+    <rect class="box" x="34" y="226" width="170" height="106" rx="6"/>
+    <text class="b" x="119" y="252" text-anchor="middle">L1 Linux 内核</text>
+    <text class="s" x="119" y="272" text-anchor="middle">打了 PVM 补丁</text>
+    <text class="s" x="119" y="288" text-anchor="middle">没有 kvm-intel / kvm-amd</text>
+    <text class="s" x="119" y="304" text-anchor="middle">PVM 就是它的</text>
+    <text class="s" x="119" y="320" text-anchor="middle">“硬件虚拟化后端”</text>
+
+    <path class="ar" d="M119 176 V225" marker-start="url(#pa-ar)" marker-end="url(#pa-ar)"/>
+    <text class="s m" x="126" y="214">ioctl(KVM_RUN)</text>
+
+    <path class="arh" d="M310 170 V225" marker-end="url(#pa-arh)"/>
+    <path class="arh" d="M370 225 V171" marker-end="url(#pa-arh)"/>
+    <text class="s" x="304" y="196" text-anchor="end">syscall / #PF / 中断</text>
+    <text class="s" x="376" y="196">sysret / iret</text>
+
+    <path class="arh" d="M630 170 V225" marker-end="url(#pa-arh)"/>
+    <path class="arh" d="M690 225 V171" marker-end="url(#pa-arh)"/>
+    <text class="s" x="624" y="196" text-anchor="end">超级调用 / ERETU / 异常</text>
+    <text class="s" x="696" y="196">sysret / iret</text>
+
+    <path class="ar" d="M580 266 V281" marker-end="url(#pa-ar)"/>
+    <path class="ar" d="M650 281 V267" marker-end="url(#pa-ar)"/>
+    <text class="s" x="574" y="278" text-anchor="end">VM exit = 函数返回</text>
+    <text class="s" x="656" y="278">VM entry = 函数调用</text>
+
+    <rect class="l0" x="14" y="372" width="772" height="54" rx="8"/>
+    <text class="b" x="30" y="394">L0：云厂商的 hypervisor（VMX root）</text>
+    <text class="s" x="30" y="413">只看到 L1 这台普通虚拟机，用自己的 EPT01 映射它的内存。L2 内部的切换、缺页、特权指令都不经过这里。</text>
+    <path class="ard" d="M700 352 V371" marker-end="url(#pa-ar)"/>
+    <text class="s" x="692" y="366" text-anchor="end">外部中断、L1 自己缺页</text>
+  </svg>
+
+  <p class="cap">客户机的用户态和内核都被压到硬件 ring3，靠两套页表区分。任何离开客户机的事件都会把 CPU 带回 h_ring0，落进宿主内核的入口代码；switcher 在那里认出“这是客户机”，把它当成一次 VM exit 交给 kvm-pvm.ko。整个过程发生在 L1 内部，L0 不参与。</p>
+</div>

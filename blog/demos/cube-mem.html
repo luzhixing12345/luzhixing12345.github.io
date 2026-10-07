@@ -1,0 +1,175 @@
+<div class="cube-mem-demo">
+  <style>
+    .cube-mem-demo {
+      --cm-fg: var(--fg, #09090b);
+      --cm-muted: var(--muted, #71717a);
+      --cm-line: var(--line, #e4e4e7);
+      --cm-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--cm-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--cm-fg);
+    }
+    .cube-mem-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--cm-soft); }
+    .cube-mem-demo text { font-size: 12px; fill: var(--cm-fg); }
+    .cube-mem-demo .s { font-size: 11px; fill: var(--cm-muted); }
+    .cube-mem-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .cube-mem-demo .pg { stroke-width: 1.1; transition: fill .3s, stroke .3s; }
+    .cube-mem-demo .file { fill: #fff; stroke: var(--cm-fg); }
+    .cube-mem-demo .none { fill: none; stroke: #a1a1aa; stroke-dasharray: 3 3; }
+    .cube-mem-demo .fpage { fill: #e4e4e7; stroke: #71717a; }
+    .cube-mem-demo .anon { fill: #fde68a; stroke: #d97706; }
+    .cube-mem-demo .inh { fill: #eff6ff; stroke: #93c5fd; }
+    .cube-mem-demo .wr { fill: #bbf7d0; stroke: #16a34a; }
+    .cube-mem-demo .dot { fill: #dc2626; }
+    .cube-mem-demo .lk { stroke: #a1a1aa; stroke-width: 1; }
+    .cube-mem-demo .bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--cm-line); font-size: 12px; color: var(--cm-muted);
+    }
+    .cube-mem-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--cm-fg); border-radius: 6px; background: var(--cm-fg); color: #fff;
+    }
+    .cube-mem-demo .lg { display: inline-flex; align-items: center; gap: 4px; }
+    .cube-mem-demo .lg i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; border: 1px solid; }
+    .cube-mem-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 4.8em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .cube-mem-demo .log .k { color: #a1a1aa; }
+    .cube-mem-demo .log .w { color: #fbbf24; }
+    .cube-mem-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .cube-mem-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 300" role="img" aria-label="内存快照演示：MAP_PRIVATE 恢复后，读过的页是共享的文件页，写过的页变成匿名页；增量快照只写匿名页，soft-dirty 快照只写上次快照后又写过的页">
+    <g class="dyn"></g>
+  </svg>
+  <div class="bar">
+    <button type="button"></button>
+    <span class="lg"><i style="background:#e4e4e7;border-color:#71717a"></i>文件页（共享）</span>
+    <span class="lg"><i style="background:#fde68a;border-color:#d97706"></i>匿名页（私有）</span>
+    <span class="lg"><i style="background:#dc2626;border-color:#dc2626;border-radius:50%;width:8px;height:8px"></i>soft-dirty</span>
+    <span class="lg"><i style="background:#bbf7d0;border-color:#16a34a"></i>本次写出</span>
+  </div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var dyn = root.querySelector(".dyn");
+      var btn = root.querySelector("button");
+      var log = root.querySelector(".log");
+      var NS = "http://www.w3.org/2000/svg";
+      var N = 16, X0 = 168, DX = 38, W = 32;
+
+      var st, dirty, snap, armed, step;
+      var steps = [
+        { btn: "客户机读一些页", run: function () {
+            st = []; dirty = []; snap = null; armed = false;
+            for (var i = 0; i < N; i++) { st.push(0); dirty.push(false); }
+            return [["", "mmap(guest_ram, MAP_PRIVATE, fd=memory-ranges)"],
+                    ["k", "只建映射，一页都没读；恢复因此不随内存大小变慢"]];
+          } },
+        { btn: "客户机写一些页", run: function () {
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (i) { st[i] = 1; });
+            return [["k", "读缺页：直接映射页缓存里的文件页，同一镜像上的 VM 共用这些物理页"],
+                    ["k", "pagemap：present=1，PM_FILE（bit 61）=1"]];
+          } },
+        { btn: "拍第一份快照", run: function () {
+            [2, 3, 7, 11].forEach(function (i) { st[i] = 2; });
+            return [["w", "写缺页：内核把这一页复制成进程私有的匿名页"],
+                    ["k", "pagemap：present=1，PM_FILE=0。匿名页集合 = 恢复以来写过的页"]];
+          } },
+        { btn: "客户机继续写", run: function () {
+            snap = [];
+            st.forEach(function (s, i) { if (s === 2) snap.push(i); });
+            armed = true;
+            return [["", "目标文件先 FICLONE 上一份镜像，再只覆盖 present 且非 PM_FILE 的 4 页"],
+                    ["k", "soft-dirty 还没开启，所以这次按匿名页写；写完探测成功"],
+                    ["ok", "echo 4 > /proc/self/clear_refs：清掉 soft-dirty，页表改成只读"]];
+          } },
+        { btn: "拍第二份快照", run: function () {
+            snap = null;
+            [3, 12].forEach(function (i) { st[i] = 2; dirty[i] = true; });
+            return [["w", "写已清标记的页触发写保护缺页，bit 55（soft-dirty）重新置位"],
+                    ["k", "匿名页现在有 5 个，其中只有 2 个是上次快照之后写的"]];
+          } },
+        { btn: "重来", run: function () {
+            snap = [];
+            st.forEach(function (s, i) { if (s === 2 && dirty[i]) snap.push(i); });
+            dirty = dirty.map(function () { return false; });
+            return [["", "soft-dirty 模式：只写 present、非 PM_FILE、且 bit 55=1 的页，共 2 页"],
+                    ["k", "同样的时刻，增量模式要写 5 页；沙箱跑得越久，两者差得越多"],
+                    ["ok", "写完再 clear_refs，给下一次快照建立新起点"]];
+          } }
+      ];
+
+      function el(tag, attrs, text) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        if (text != null) n.textContent = text;
+        dyn.appendChild(n);
+        return n;
+      }
+      function x(i) { return X0 + i * DX; }
+
+      function render() {
+        while (dyn.firstChild) dyn.removeChild(dyn.firstChild);
+        el("text", { x: 20, y: 44, "class": "m" }, "memory-ranges");
+        el("text", { x: 20, y: 60, "class": "s" }, "内存镜像 · 页缓存");
+        el("text", { x: 20, y: 144 }, "客户机内存");
+        el("text", { x: 20, y: 160, "class": "s" }, "VMM 进程里的映射");
+        el("text", { x: 20, y: 244 }, "新快照文件");
+        el("text", { x: 20, y: 260, "class": "s" }, "reflink 自上一份");
+
+        for (var i = 0; i < N; i++) {
+          if (st[i] === 1) el("line", { "class": "lk", x1: x(i) + W / 2, y1: 64, x2: x(i) + W / 2, y2: 126 });
+        }
+        for (i = 0; i < N; i++) {
+          el("rect", { "class": "pg file", x: x(i), y: 34, width: W, height: 30, rx: 3 });
+          el("text", { x: x(i) + W / 2, y: 54, "text-anchor": "middle", "class": "s m" }, String(i));
+          var c = st[i] === 0 ? "none" : st[i] === 1 ? "fpage" : "anon";
+          el("rect", { "class": "pg " + c, x: x(i), y: 126, width: W, height: 34, rx: 3 });
+          if (dirty[i]) el("circle", { "class": "dot", cx: x(i) + W - 6, cy: 132, r: 4 });
+          if (snap) {
+            var w = snap.indexOf(i) >= 0;
+            el("rect", { "class": "pg " + (w ? "wr" : "inh"), x: x(i), y: 226, width: W, height: 34, rx: 3 });
+            if (w) el("text", { x: x(i) + W / 2, y: 248, "text-anchor": "middle", "class": "s" }, "写");
+          }
+        }
+        if (!snap) el("text", { x: 470, y: 248, "text-anchor": "middle", "class": "s" }, "（还没拍快照）");
+        el("text", { x: 470, y: 286, "text-anchor": "middle", "class": "s" },
+          armed ? "soft-dirty 跟踪已开启" : "soft-dirty 跟踪未开启：第一次快照只能按匿名页写");
+      }
+
+      function apply() {
+        var lines = steps[step].run();
+        btn.textContent = steps[step].btn;
+        render();
+        log.innerHTML = "";
+        lines.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+      function advance() {
+        step = (step + 1) % steps.length;
+        apply();
+      }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      step = 0;
+      apply();
+    })();
+  </script>
+</div>

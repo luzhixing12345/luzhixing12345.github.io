@@ -1,0 +1,268 @@
+<div class="icmp-bh-demo" data-step="0">
+  <style>
+    .icmp-bh-demo {
+      --bh-fg: var(--fg, #09090b);
+      --bh-muted: var(--muted, #71717a);
+      --bh-line: var(--line, #e4e4e7);
+      --bh-soft: var(--soft, #f4f4f5);
+      --bh-ok: #16a34a;
+      --bh-wait: #d97706;
+      --bh-bad: #dc2626;
+      border: 1px solid var(--bh-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--bh-fg);
+      background: #fff;
+    }
+    .icmp-bh-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--bh-soft); }
+    .icmp-bh-demo text { font-size: 13px; fill: var(--bh-fg); }
+    .icmp-bh-demo .small { font-size: 11px; fill: var(--bh-muted); }
+    .icmp-bh-demo .mono { font-family: var(--mono, ui-monospace, monospace); }
+    .icmp-bh-demo .wire { stroke: #a1a1aa; stroke-width: 2; }
+    .icmp-bh-demo .narrow { stroke: #a1a1aa; stroke-width: 1; stroke-dasharray: 3 3; }
+    .icmp-bh-demo .box { fill: #fff; stroke: var(--bh-fg); stroke-width: 1.5; transition: stroke .3s, fill .3s; }
+    .icmp-bh-demo .fw { stroke: var(--bh-bad); fill: #fef2f2; }
+    .icmp-bh-demo[data-fixed="1"] .fw { stroke: var(--bh-ok); fill: #f0fdf4; }
+    .icmp-bh-demo .fw-rule { fill: var(--bh-bad); }
+    .icmp-bh-demo[data-fixed="1"] .fw-rule { fill: var(--bh-ok); }
+    .icmp-bh-demo .client[data-state="ok"] { stroke: var(--bh-ok); fill: #f0fdf4; }
+    .icmp-bh-demo .client[data-state="stuck"] { stroke: var(--bh-wait); fill: #fffbeb; }
+    .icmp-bh-demo .pkt { opacity: 0; transition: transform .9s ease-in-out, opacity .2s; }
+    .icmp-bh-demo .pkt[data-on="1"] { opacity: 1; }
+    .icmp-bh-demo .pkt.data rect { fill: var(--bh-fg); }
+    .icmp-bh-demo .pkt.icmp rect { fill: var(--bh-wait); }
+    .icmp-bh-demo .pkt text { fill: #fff; font-size: 10px; }
+    .icmp-bh-demo .boom { opacity: 0; transition: opacity .2s; fill: var(--bh-bad); font-size: 18px; font-weight: 700; }
+    .icmp-bh-demo .boom[data-on="1"] { opacity: 1; }
+    .icmp-bh-demo .pmtu { transition: fill .3s; }
+    .icmp-bh-demo[data-learned="1"] .pmtu { fill: var(--bh-ok); }
+    .icmp-bh-demo .bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--bh-line); }
+    .icmp-bh-demo button {
+      font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--bh-fg); background: var(--bh-fg); color: #fff; white-space: nowrap;
+    }
+    .icmp-bh-demo button:disabled { opacity: .5; cursor: default; }
+    .icmp-bh-demo .caption { font-size: 13px; color: var(--bh-muted); line-height: 1.5; }
+    .icmp-bh-demo .log {
+      margin: 0; padding: 10px 14px; height: 9em; overflow: hidden; list-style: none;
+      background: #09090b; color: #d4d4d8; font-family: var(--mono, ui-monospace, monospace);
+      font-size: 12px; line-height: 1.5; display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .icmp-bh-demo .log .k { color: #a1a1aa; }
+    .icmp-bh-demo .log .w { color: #fbbf24; }
+    .icmp-bh-demo .log .bad { color: #f87171; }
+    .icmp-bh-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .icmp-bh-demo * { transition: none !important; animation: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 260" role="img" aria-label="ICMP 黑洞演示：防火墙丢掉了路由器回的“包太大”消息，服务器的大包一直消失，放行之后路径 MTU 发现恢复正常">
+    <line class="wire" x1="120" y1="130" x2="560" y2="130"/>
+    <line class="narrow" x1="560" y1="130" x2="690" y2="130"/>
+    <text x="625" y="120" text-anchor="middle" class="small mono">PPPoE  MTU 1492</text>
+    <text x="340" y="120" text-anchor="middle" class="small mono">以太网  MTU 1500</text>
+
+    <rect class="box" x="30" y="96" width="90" height="68" rx="6"/>
+    <text x="75" y="122" text-anchor="middle">服务器</text>
+    <text x="75" y="140" text-anchor="middle" class="small mono">203.0.113.80</text>
+    <text class="small mono pmtu" x="75" y="156" text-anchor="middle">PMTU 1500</text>
+
+    <rect class="box fw" x="200" y="104" width="76" height="52" rx="4"/>
+    <text x="238" y="127" text-anchor="middle">防火墙</text>
+    <text class="small mono fw-rule" x="238" y="145" text-anchor="middle">DROP icmp</text>
+
+    <rect class="box" x="510" y="108" width="100" height="44" rx="22"/>
+    <text x="560" y="128" text-anchor="middle">宽带接入</text>
+    <text x="560" y="143" text-anchor="middle" class="small">路由器</text>
+
+    <rect class="box client" x="690" y="96" width="90" height="68" rx="6"/>
+    <text x="735" y="122" text-anchor="middle">你的电脑</text>
+    <text x="735" y="140" text-anchor="middle" class="small mono">192.0.2.10</text>
+    <text class="small client-state" x="735" y="190" text-anchor="middle"></text>
+
+    <g class="pkt data">
+      <rect x="-46" y="-11" width="92" height="22" rx="4"/>
+      <text class="mono" x="0" y="4" text-anchor="middle">1500 DF</text>
+    </g>
+    <g class="pkt icmp">
+      <rect x="-60" y="-11" width="120" height="22" rx="4"/>
+      <text class="mono" x="0" y="4" text-anchor="middle">ICMP 3/4 mtu 1492</text>
+    </g>
+    <text class="boom b1" x="510" y="100" text-anchor="middle">✕</text>
+    <text class="boom b2" x="238" y="200" text-anchor="middle">✕</text>
+    <text class="small hint" x="400" y="34" text-anchor="middle">服务器发往你的数据包都带 DF（不许分片），路径上最窄的一段在你家门口</text>
+  </svg>
+
+  <div class="bar">
+    <button type="button"></button>
+    <span class="caption" aria-live="polite"></span>
+  </div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var caption = root.querySelector(".caption");
+      var log = root.querySelector(".log");
+      var data = svg.querySelector(".pkt.data");
+      var icmp = svg.querySelector(".pkt.icmp");
+      var b1 = svg.querySelector(".b1");
+      var b2 = svg.querySelector(".b2");
+      var client = svg.querySelector(".client");
+      var clientState = svg.querySelector(".client-state");
+      var pmtu = svg.querySelector(".pmtu");
+      var dur = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 900;
+      var step = 0;
+      var busy = false;
+      var labels = [
+        "服务器发一个小包",
+        "服务器发一个满载的大包",
+        "等超时，重传",
+        "防火墙放行“包太大”",
+        "按新的 PMTU 重传",
+        "重来"
+      ];
+      var Y = 130, YR = 200;
+
+      function write(text, kind) {
+        var li = document.createElement("li");
+        li.textContent = text;
+        if (kind) li.className = kind;
+        log.appendChild(li);
+        while (log.children.length > 7) log.removeChild(log.firstChild);
+      }
+      function place(el, x, y, animate) {
+        el.style.transition = animate ? "" : "none";
+        el.style.transform = "translate(" + x + "px, " + y + "px)";
+        if (!animate) el.getBoundingClientRect();
+      }
+      function fly(el, from, to, done) {
+        place(el, from[0], from[1], false);
+        el.setAttribute("data-on", "1");
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { place(el, to[0], to[1], true); });
+        });
+        setTimeout(function () { el.setAttribute("data-on", "0"); done(); }, dur + 50);
+      }
+      function setLabel(text) { data.querySelector("text").textContent = text; }
+      function lock() { busy = true; btn.disabled = true; b1.setAttribute("data-on", "0"); b2.setAttribute("data-on", "0"); }
+      function unlock(next) { busy = false; btn.disabled = false; step = next; btn.textContent = labels[next]; }
+
+      function bigLost(retry, done) {
+        setLabel("1500 DF");
+        write("IP 203.0.113.80.443 > 192.0.2.10.51514: Flags [.], seq 1449:2897, length 1448" + (retry ? "（重传）" : ""));
+        fly(data, [75, Y], [510, Y], function () {
+          b1.setAttribute("data-on", "1");
+          write("access-router: 1500 > 1492 且 DF=1，丢弃，回 ICMP 需要分片", "w");
+          fly(icmp, [560, YR], [238, YR], function () {
+            b2.setAttribute("data-on", "1");
+            write("firewall: DROP icmp 198.51.100.1 > 203.0.113.80 type 3 code 4", "bad");
+            done();
+          });
+        });
+      }
+
+      function stepSmall() {
+        lock();
+        setLabel("300 字节");
+        caption.textContent = "ping、SSH 敲命令、TLS 握手的头几个包，都小于 1492，一路畅通。";
+        write("IP 203.0.113.80.443 > 192.0.2.10.51514: Flags [P.], seq 1:301, length 300");
+        fly(data, [75, Y], [735, Y], function () {
+          client.setAttribute("data-state", "ok");
+          clientState.textContent = "小包收到了";
+          write("ping 通，SSH 能登上，看起来一切正常。", "ok");
+          unlock(1);
+        });
+      }
+      function stepBig() {
+        lock();
+        client.removeAttribute("data-state");
+        clientState.textContent = "";
+        caption.textContent = "服务器开始回网页或证书链，这次是一个满载的 1500 字节包。";
+        bigLost(false, function () {
+          client.setAttribute("data-state", "stuck");
+          clientState.textContent = "一直在转圈";
+          caption.textContent = "路由器尽职地回了“包太大，下一跳只能过 1492”，可这条 ICMP 在防火墙上被丢掉了。服务器什么都不知道。";
+          unlock(2);
+        });
+      }
+      function stepRetry() {
+        lock();
+        caption.textContent = "服务器只看到“没收到确认”，以为是拥塞丢包，于是按原样重传。一模一样的包，一模一样的下场。";
+        bigLost(true, function () {
+          write("…重传退避 0.4s → 0.8s → 1.6s → … 连接最终超时", "bad");
+          caption.textContent = "这就是黑洞：路由器喊了，喊声在半路被捂住。ping 能通，网页却永远加载不完。";
+          unlock(3);
+        });
+      }
+      function stepFix() {
+        lock();
+        root.setAttribute("data-fixed", "1");
+        svg.querySelector(".fw-rule").textContent = "ACCEPT 3/4";
+        write("firewall# iptables -I INPUT -p icmp --icmp-type fragmentation-needed -j ACCEPT", "k");
+        caption.textContent = "只放行 ICMP 类型 3 代码 4，其余 ICMP 照样可以按需过滤。服务器再发一次大包。";
+        setLabel("1500 DF");
+        write("IP 203.0.113.80.443 > 192.0.2.10.51514: Flags [.], seq 1449:2897, length 1448（重传）");
+        fly(data, [75, Y], [510, Y], function () {
+          b1.setAttribute("data-on", "1");
+          write("access-router: 1500 > 1492 且 DF=1，丢弃，回 ICMP 需要分片", "w");
+          fly(icmp, [560, YR], [75, YR], function () {
+            root.setAttribute("data-learned", "1");
+            pmtu.textContent = "PMTU 1492";
+            write("IP 198.51.100.1 > 203.0.113.80: ICMP 192.0.2.10 unreachable - need to frag (mtu 1492)", "ok");
+            write("server$ ip route get 192.0.2.10  →  … cache expires 599sec mtu 1492", "k");
+            caption.textContent = "这一次“包太大”回到了服务器。内核把去往你的路径 MTU 记成 1492，此后的包都切小一点。";
+            unlock(4);
+          });
+        });
+      }
+      function stepResend() {
+        lock();
+        setLabel("1492 DF");
+        write("IP 203.0.113.80.443 > 192.0.2.10.51514: Flags [.], seq 1449:2889, length 1440");
+        caption.textContent = "按 1492 重新切过的包，刚好挤得过 PPPoE 那一段。";
+        fly(data, [75, Y], [735, Y], function () {
+          client.setAttribute("data-state", "ok");
+          clientState.textContent = "网页加载完了";
+          write("连接恢复，大包畅通。", "ok");
+          caption.textContent = "路径 MTU 发现能工作的全部前提，就是那条 ICMP 能回到发送方手里。";
+          unlock(5);
+        });
+      }
+      function reset() {
+        root.removeAttribute("data-fixed");
+        root.removeAttribute("data-learned");
+        svg.querySelector(".fw-rule").textContent = "DROP icmp";
+        pmtu.textContent = "PMTU 1500";
+        client.removeAttribute("data-state");
+        clientState.textContent = "";
+        b1.setAttribute("data-on", "0");
+        b2.setAttribute("data-on", "0");
+        data.setAttribute("data-on", "0");
+        icmp.setAttribute("data-on", "0");
+        log.innerHTML = "";
+        write("firewall# iptables -A INPUT -p icmp -j DROP    # “为了安全”", "k");
+        caption.textContent = "点按钮或画面，先让服务器发一个小包。";
+        unlock(0);
+      }
+
+      function advance() {
+        if (busy) return;
+        if (step === 0) stepSmall();
+        else if (step === 1) stepBig();
+        else if (step === 2) stepRetry();
+        else if (step === 3) stepFix();
+        else if (step === 4) stepResend();
+        else reset();
+      }
+
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      reset();
+    })();
+  </script>
+</div>

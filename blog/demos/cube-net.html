@@ -1,0 +1,150 @@
+<div class="cube-net-demo" data-show="snat">
+  <style>
+    .cube-net-demo {
+      --cn-fg: var(--fg, #09090b);
+      --cn-muted: var(--muted, #71717a);
+      --cn-line: var(--line, #e4e4e7);
+      --cn-soft: var(--soft, #f4f4f5);
+      --cn-hi: #2563eb;
+      border: 1px solid var(--cn-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--cn-fg);
+    }
+    .cube-net-demo svg { display: block; width: 100%; height: auto; background: var(--cn-soft); }
+    .cube-net-demo text { font-size: 12.5px; fill: var(--cn-fg); }
+    .cube-net-demo .s { font-size: 11px; fill: var(--cn-muted); }
+    .cube-net-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .cube-net-demo .b { font-weight: 600; }
+    .cube-net-demo .zone { fill: #fff; stroke: var(--cn-line); }
+    .cube-net-demo .zl { font-size: 12px; font-weight: 600; fill: var(--cn-muted); }
+    .cube-net-demo .box { fill: #fff; stroke: var(--cn-fg); stroke-width: 1.2; }
+    .cube-net-demo .bpf { fill: #fffbeb; stroke: #d97706; stroke-width: 1.3; }
+    .cube-net-demo .vm { fill: #fff7ed; stroke: #d97706; stroke-width: 1.4; }
+    .cube-net-demo .p { fill: none; stroke: #a1a1aa; stroke-width: 1.5; opacity: .35; transition: opacity .3s, stroke .3s; }
+    .cube-net-demo .pl { opacity: .3; transition: opacity .3s; }
+    .cube-net-demo[data-show="snat"] .p-snat,
+    .cube-net-demo[data-show="l7"] .p-l7,
+    .cube-net-demo[data-show="in"] .p-in { stroke: var(--cn-hi); stroke-width: 2.2; opacity: 1; }
+    .cube-net-demo[data-show="snat"] .l-snat,
+    .cube-net-demo[data-show="l7"] .l-l7,
+    .cube-net-demo[data-show="in"] .l-in { opacity: 1; }
+    .cube-net-demo .p-all { stroke: var(--cn-hi); stroke-width: 2.2; opacity: 1; }
+    .cube-net-demo .bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px;
+      border-top: 1px solid var(--cn-line);
+    }
+    .cube-net-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--cn-fg); border-radius: 6px; background: #fff; color: var(--cn-fg);
+    }
+    .cube-net-demo button[aria-pressed="true"] { background: var(--cn-fg); color: #fff; }
+    .cube-net-demo .cap {
+      margin: 0; padding: 0 14px 12px; font-size: 13px; line-height: 1.7; color: var(--cn-fg);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cube-net-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 380" role="img" aria-label="CubeVS 节点网络拓扑：沙箱经 TAP 进入 from_cube，普通流量 SNAT 到宿主机网卡，L7 流量经 cube-dev 交给 CubeEgress，入站流量从 CubeProxy 经网卡端口映射进入 TAP">
+    <defs>
+      <marker id="cn-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#2563eb"/>
+      </marker>
+    </defs>
+
+    <rect class="zone" x="14" y="14" width="600" height="352" rx="8"/>
+    <text class="zl" x="26" y="32">计算节点</text>
+
+    <rect class="vm" x="30" y="148" width="140" height="84" rx="6"/>
+    <text class="b" x="100" y="170" text-anchor="middle">沙箱客户机</text>
+    <text class="s m" x="100" y="190" text-anchor="middle">eth0 169.254.68.6</text>
+    <text class="s m" x="100" y="206" text-anchor="middle">网关 169.254.68.5</text>
+    <text class="s" x="100" y="222" text-anchor="middle">每台沙箱都一样</text>
+
+    <rect class="bpf" x="220" y="160" width="130" height="60" rx="6"/>
+    <text class="b" x="285" y="182" text-anchor="middle">TAP</text>
+    <text class="s m" x="285" y="198" text-anchor="middle">from_cube</text>
+    <text class="s" x="285" y="212" text-anchor="middle">TC ingress</text>
+
+    <rect class="bpf" x="420" y="56" width="160" height="60" rx="6"/>
+    <text class="b" x="500" y="78" text-anchor="middle">宿主机网卡</text>
+    <text class="s m" x="500" y="94" text-anchor="middle">from_world</text>
+    <text class="s" x="500" y="108" text-anchor="middle">TC ingress</text>
+
+    <rect class="bpf" x="420" y="264" width="160" height="60" rx="6"/>
+    <text class="b" x="500" y="286" text-anchor="middle">cube-dev</text>
+    <text class="s m" x="500" y="302" text-anchor="middle">from_envoy</text>
+    <text class="s" x="500" y="316" text-anchor="middle">TC egress</text>
+
+    <rect class="box" x="640" y="264" width="140" height="60" rx="6"/>
+    <text class="b" x="710" y="286" text-anchor="middle">CubeEgress</text>
+    <text class="s" x="710" y="302" text-anchor="middle">透明代理</text>
+    <text class="s m" x="710" y="316" text-anchor="middle">:8080 / :8443</text>
+
+    <rect class="box" x="640" y="40" width="140" height="44" rx="6"/>
+    <text class="b" x="710" y="67" text-anchor="middle">互联网</text>
+
+    <rect class="box" x="640" y="160" width="140" height="60" rx="6"/>
+    <text class="b" x="710" y="182" text-anchor="middle">CubeProxy</text>
+    <text class="s" x="710" y="198" text-anchor="middle">按 Host / 路径路由</text>
+    <text class="s m" x="710" y="212" text-anchor="middle">→ 主机端口</text>
+
+    <path class="p p-all" d="M170 190 H219" marker-start="url(#cn-ar)" marker-end="url(#cn-ar)"/>
+
+    <path class="p p-snat" d="M350 176 C 392 176, 380 78, 419 78" marker-start="url(#cn-ar)" marker-end="url(#cn-ar)"/>
+    <path class="p p-snat" d="M580 70 C 610 70, 610 62, 639 62" marker-start="url(#cn-ar)" marker-end="url(#cn-ar)"/>
+    <g class="pl l-snat">
+      <text class="s" x="378" y="112" text-anchor="end">SNAT 到节点 IP</text>
+      <text class="s" x="378" y="126" text-anchor="end">端口 30000 起</text>
+    </g>
+
+    <path class="p p-l7" d="M350 206 C 392 206, 380 294, 419 294" marker-start="url(#cn-ar)" marker-end="url(#cn-ar)"/>
+    <path class="p p-l7" d="M580 294 H639" marker-start="url(#cn-ar)" marker-end="url(#cn-ar)"/>
+    <path class="p p-l7" d="M740 264 V250 H790 V62 H781" marker-end="url(#cn-ar)"/>
+    <g class="pl l-l7">
+      <text class="s" x="340" y="262">打标记 0xCE01 / 0xCE02</text>
+      <text class="s" x="590" y="342">fwmark → TPROXY</text>
+    </g>
+
+    <path class="p p-in" d="M639 184 C 600 184, 610 104, 581 104" marker-end="url(#cn-ar)"/>
+    <path class="p p-in" d="M419 100 C 380 100, 392 190, 351 190" marker-end="url(#cn-ar)"/>
+    <g class="pl l-in">
+      <text class="s" x="590" y="140">主机端口 20000–29999</text>
+      <text class="s" x="404" y="150">DNAT 到监听端口</text>
+    </g>
+  </svg>
+
+  <div class="bar">
+    <button type="button" data-k="snat" aria-pressed="true">普通出站</button>
+    <button type="button" data-k="l7" aria-pressed="false">L7 出站</button>
+    <button type="button" data-k="in" aria-pressed="false">入站访问</button>
+  </div>
+  <p class="cap" aria-live="polite"></p>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var cap = root.querySelector(".cap");
+      var text = {
+        snat: "沙箱发出的报文在 TAP 上被 from_cube 接住：查策略、建会话、把源地址换成节点 IP 和 30000 以上的端口，直接重定向到宿主机网卡发出。回包进网卡后由 from_world 查会话表还原地址，再重定向回这块 TAP。整条路不经过宿主机协议栈，也没有网桥。",
+        l7: "目的地址命中一条要求 L7 检查的放行规则时，from_cube 不做 SNAT，而是给报文打上标记、送进 cube-dev。宿主机的 iptables 按标记用 TPROXY 交给 CubeEgress。CubeEgress 以沙箱原本要连的地址去连上游；回包以远端地址为源，从 cube-dev 发出，由 from_envoy 转回 TAP，沙箱以为自己直连了对方。",
+        in: "外部请求先到 CubeProxy，它按 Host 或路径找到沙箱所在节点和映射出来的主机端口。报文到达节点网卡，from_world 查端口映射表，把目的地址改成 169.254.68.6 上的监听端口，重定向进 TAP。沙箱的回包由 from_cube 按反向映射表改回主机端口送出。"
+      };
+      function show(k) {
+        root.setAttribute("data-show", k);
+        root.querySelectorAll("button").forEach(function (b) {
+          b.setAttribute("aria-pressed", b.getAttribute("data-k") === k ? "true" : "false");
+        });
+        cap.textContent = text[k];
+      }
+      root.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function () { show(b.getAttribute("data-k")); });
+      });
+      show("snat");
+    })();
+  </script>
+</div>

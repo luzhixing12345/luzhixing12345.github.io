@@ -1,0 +1,241 @@
+<div class="icmp-tr-demo">
+  <style>
+    .icmp-tr-demo {
+      --tr-fg: var(--fg, #09090b);
+      --tr-muted: var(--muted, #71717a);
+      --tr-line: var(--line, #e4e4e7);
+      --tr-soft: var(--soft, #f4f4f5);
+      --tr-ok: #16a34a;
+      --tr-wait: #d97706;
+      --tr-bad: #dc2626;
+      border: 1px solid var(--tr-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--tr-fg);
+      background: #fff;
+    }
+    .icmp-tr-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--tr-soft); }
+    .icmp-tr-demo text { font-size: 13px; fill: var(--tr-fg); }
+    .icmp-tr-demo .small { font-size: 11px; fill: var(--tr-muted); }
+    .icmp-tr-demo .mono { font-family: var(--mono, ui-monospace, monospace); }
+    .icmp-tr-demo .wire { stroke: #a1a1aa; stroke-width: 2; }
+    .icmp-tr-demo .node rect, .icmp-tr-demo .node circle.box { fill: #fff; stroke: var(--tr-fg); stroke-width: 1.5; transition: stroke .3s, fill .3s; }
+    .icmp-tr-demo .node .tag { font-size: 11px; transition: fill .3s; fill: var(--tr-muted); }
+    .icmp-tr-demo .node[data-state="hit"] rect, .icmp-tr-demo .node[data-state="hit"] circle.box { stroke: var(--tr-wait); fill: #fffbeb; }
+    .icmp-tr-demo .node[data-state="hit"] .tag { fill: var(--tr-wait); }
+    .icmp-tr-demo .node[data-state="silent"] rect { stroke: var(--tr-muted); stroke-dasharray: 4 3; }
+    .icmp-tr-demo .node[data-state="silent"] .tag { fill: var(--tr-muted); }
+    .icmp-tr-demo .node[data-state="done"] rect { stroke: var(--tr-ok); fill: #f0fdf4; }
+    .icmp-tr-demo .node[data-state="done"] .tag { fill: var(--tr-ok); }
+    .icmp-tr-demo .pkt { opacity: 0; transition: transform .9s ease-in-out, opacity .2s; }
+    .icmp-tr-demo .pkt[data-on="1"] { opacity: 1; }
+    .icmp-tr-demo .pkt.probe rect { fill: var(--tr-fg); }
+    .icmp-tr-demo .pkt.reply rect { fill: var(--tr-wait); }
+    .icmp-tr-demo .pkt.final rect { fill: var(--tr-ok); }
+    .icmp-tr-demo .pkt text { fill: #fff; font-size: 11px; }
+    .icmp-tr-demo .boom { opacity: 0; transition: opacity .2s; fill: var(--tr-bad); font-size: 18px; font-weight: 700; }
+    .icmp-tr-demo .boom[data-on="1"] { opacity: 1; }
+    .icmp-tr-demo .bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--tr-line); }
+    .icmp-tr-demo button {
+      font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--tr-fg); background: var(--tr-fg); color: #fff; white-space: nowrap;
+    }
+    .icmp-tr-demo button:disabled { opacity: .5; cursor: default; }
+    .icmp-tr-demo .caption { font-size: 13px; color: var(--tr-muted); line-height: 1.5; }
+    .icmp-tr-demo .log {
+      margin: 0; padding: 10px 14px; height: 9em; overflow: hidden; list-style: none;
+      background: #09090b; color: #d4d4d8; font-family: var(--mono, ui-monospace, monospace);
+      font-size: 12px; line-height: 1.5; display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .icmp-tr-demo .log .k { color: #a1a1aa; }
+    .icmp-tr-demo .log .w { color: #fbbf24; }
+    .icmp-tr-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .icmp-tr-demo * { transition: none !important; animation: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 260" role="img" aria-label="traceroute 演示：主机依次发送 TTL 为 1 到 5 的探测包，每台路由器在 TTL 归零时回一条 ICMP 超时">
+    <line class="wire" x1="70" y1="130" x2="730" y2="130"/>
+
+    <g class="node" data-id="0">
+      <rect x="30" y="100" width="80" height="60" rx="6"/>
+      <text x="70" y="126" text-anchor="middle">你的电脑</text>
+      <text x="70" y="144" text-anchor="middle" class="small mono">192.168.1.5</text>
+      <text class="tag" x="70" y="186" text-anchor="middle">traceroute</text>
+    </g>
+    <g class="node" data-id="1">
+      <rect x="164" y="108" width="72" height="44" rx="22"/>
+      <text x="200" y="135" text-anchor="middle">R1</text>
+      <text x="200" y="176" text-anchor="middle" class="small mono">192.168.1.1</text>
+      <text class="tag" x="200" y="194" text-anchor="middle"></text>
+    </g>
+    <g class="node" data-id="2">
+      <rect x="294" y="108" width="72" height="44" rx="22"/>
+      <text x="330" y="135" text-anchor="middle">R2</text>
+      <text x="330" y="176" text-anchor="middle" class="small mono">10.20.0.1</text>
+      <text class="tag" x="330" y="194" text-anchor="middle"></text>
+    </g>
+    <g class="node" data-id="3">
+      <rect x="424" y="108" width="72" height="44" rx="22"/>
+      <text x="460" y="135" text-anchor="middle">R3</text>
+      <text x="460" y="176" text-anchor="middle" class="small mono">不发 ICMP</text>
+      <text class="tag" x="460" y="194" text-anchor="middle"></text>
+    </g>
+    <g class="node" data-id="4">
+      <rect x="554" y="108" width="72" height="44" rx="22"/>
+      <text x="590" y="135" text-anchor="middle">R4</text>
+      <text x="590" y="176" text-anchor="middle" class="small mono">198.51.100.7</text>
+      <text class="tag" x="590" y="194" text-anchor="middle"></text>
+    </g>
+    <g class="node" data-id="5">
+      <rect x="690" y="100" width="80" height="60" rx="6"/>
+      <text x="730" y="126" text-anchor="middle">目的主机</text>
+      <text x="730" y="144" text-anchor="middle" class="small mono">203.0.113.9</text>
+      <text class="tag" x="730" y="186" text-anchor="middle"></text>
+    </g>
+
+    <g class="pkt probe">
+      <rect x="-36" y="58" width="72" height="22" rx="4"/>
+      <text class="mono" x="0" y="73" text-anchor="middle">UDP TTL=1</text>
+    </g>
+    <g class="pkt reply">
+      <rect x="-48" y="214" width="96" height="22" rx="4"/>
+      <text class="mono" x="0" y="229" text-anchor="middle">ICMP 超时</text>
+    </g>
+    <text class="boom" x="0" y="96" text-anchor="middle">✕</text>
+    <text class="small hint" x="400" y="34" text-anchor="middle">TTL 每过一台路由器减 1，减到 0 的那一台丢掉包，回一条 ICMP 超时</text>
+  </svg>
+
+  <div class="bar">
+    <button type="button"></button>
+    <span class="caption" aria-live="polite"></span>
+  </div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var caption = root.querySelector(".caption");
+      var log = root.querySelector(".log");
+      var probe = svg.querySelector(".pkt.probe");
+      var reply = svg.querySelector(".pkt.reply");
+      var boom = svg.querySelector(".boom");
+      var xs = [70, 200, 330, 460, 590, 730];
+      var hops = [
+        null,
+        { line: " 1  192.168.1.1  1.214 ms  1.102 ms  1.087 ms", tag: "TTL 1→0" },
+        { line: " 2  10.20.0.1  8.531 ms  8.402 ms  8.611 ms", tag: "TTL 1→0" },
+        { line: " 3  * * *", tag: "丢包，不回话", silent: true },
+        { line: " 4  198.51.100.7  23.104 ms  22.987 ms  23.240 ms", tag: "TTL 1→0" },
+        { line: " 5  203.0.113.9  25.410 ms  25.377 ms  25.502 ms", tag: "端口不可达", final: true }
+      ];
+      var ttl = 0;
+      var busy = false;
+      var dur = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 900;
+
+      function node(i) { return svg.querySelector('.node[data-id="' + i + '"]'); }
+      function write(text, kind) {
+        var li = document.createElement("li");
+        li.textContent = text;
+        if (kind) li.className = kind;
+        log.appendChild(li);
+        while (log.children.length > 7) log.removeChild(log.firstChild);
+      }
+      function place(el, x, animate) {
+        el.style.transition = animate ? "" : "none";
+        el.style.transform = "translate(" + x + "px, 0)";
+        if (!animate) el.getBoundingClientRect();
+      }
+      function label() {
+        if (ttl >= 5) btn.textContent = "重来";
+        else btn.textContent = "发送 TTL=" + (ttl + 1) + " 的探测包";
+      }
+
+      function send() {
+        busy = true;
+        btn.disabled = true;
+        ttl += 1;
+        var hop = hops[ttl];
+        probe.querySelector("text").textContent = "UDP TTL=" + ttl;
+        boom.setAttribute("data-on", "0");
+        place(probe, xs[0], false);
+        probe.setAttribute("data-on", "1");
+        caption.textContent = "探测包出发，TTL=" + ttl + "，目的端口 " + (33433 + ttl) + "。";
+        requestAnimationFrame(function () { place(probe, xs[ttl], true); });
+
+        setTimeout(function () {
+          probe.setAttribute("data-on", "0");
+          var n = node(ttl);
+          n.querySelector(".tag").textContent = hop.tag;
+          if (hop.silent) {
+            n.setAttribute("data-state", "silent");
+            boom.setAttribute("x", xs[ttl]);
+            boom.setAttribute("data-on", "1");
+            caption.textContent = "R3 把 TTL 减到 0、丢了包，却按配置一声不吭。traceroute 等满 5 秒，只能打星号。";
+            write(hop.line, "w");
+            finish();
+            return;
+          }
+          n.setAttribute("data-state", hop.final ? "done" : "hit");
+          reply.classList.toggle("final", !!hop.final);
+          reply.querySelector("text").textContent = hop.final ? "ICMP 端口不可达" : "ICMP 超时";
+          if (!hop.final) {
+            boom.setAttribute("x", xs[ttl]);
+            boom.setAttribute("data-on", "1");
+          }
+          caption.textContent = hop.final
+            ? "包到了目的主机，可 " + (33433 + ttl) + " 端口没人听，主机回 ICMP 类型 3 代码 3：端口不可达。"
+            : "R" + ttl + " 把 TTL 减到 0，丢包，回 ICMP 类型 11：超时。源地址就是它自己。";
+          place(reply, xs[ttl], false);
+          reply.setAttribute("data-on", "1");
+          requestAnimationFrame(function () { place(reply, xs[0], true); });
+          setTimeout(function () {
+            reply.setAttribute("data-on", "0");
+            write(hop.line, hop.final ? "ok" : "");
+            if (hop.final) {
+              write("到达目的主机，探测结束。", "ok");
+              caption.textContent = "一共 5 跳。每一行地址，都是那一跳路由器亲自回的 ICMP 报上来的。";
+            }
+            finish();
+          }, dur + 50);
+        }, dur + 50);
+      }
+
+      function finish() {
+        busy = false;
+        btn.disabled = false;
+        label();
+      }
+
+      function reset() {
+        ttl = 0;
+        for (var i = 1; i <= 5; i++) {
+          node(i).removeAttribute("data-state");
+          node(i).querySelector(".tag").textContent = "";
+        }
+        boom.setAttribute("data-on", "0");
+        probe.setAttribute("data-on", "0");
+        reply.setAttribute("data-on", "0");
+        log.innerHTML = "";
+        write("$ traceroute 203.0.113.9", "k");
+        write("traceroute to 203.0.113.9 (203.0.113.9), 30 hops max, 60 byte packets", "k");
+        caption.textContent = "点按钮或画面，发出第一个探测包。";
+        label();
+      }
+
+      function advance() {
+        if (busy) return;
+        if (ttl >= 5) reset();
+        else send();
+      }
+
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      reset();
+    })();
+  </script>
+</div>

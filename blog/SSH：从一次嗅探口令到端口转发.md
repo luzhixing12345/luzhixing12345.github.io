@@ -86,7 +86,7 @@ Debian 在 2006 年 9 月改 OpenSSL 包时，为了消掉 Valgrind 对未初始
 - Barrett、Silverman、Byrnes，《SSH, The Secure Shell: The Definitive Guide》第 1.5 节记载了 1995 年年底约两万用户、五十个国家、每天约一百五十封信，以及 1995 年 12 月成立 SSH Communications Security。在线文本见 [History of SSH](http://users.softlab.ntua.gr/~sivann/books/OReilly%20Bookshelf/tcpip/ssh/ch01_05.htm)。
 - OpenSSH 项目自己的 [Project History](https://www.openssh.org/history.html)。1.2.12、OSSH、1999-09-26 导入、1999-12-01 随 OpenBSD 2.6 发布。
 - RFC 4251 至 4254，2006 年 1 月。SSH-2 的传输、认证和连接层。
-- Debian，[DSA-1571](https://www.debian.org/security/2008/dsa-1571) 与 [SSLkeys](https://wiki.debian.org/SSLkeys)。CVE-2008-0166，可预测的随机数，以及 SSH 密钥必须作废的范围。OpenSSL 还实现着浏览器和网站之间的那条协议，见[从 SSL 到 TLS 1.3：互联网如何偿还二十年的密码学技术债](../从%20SSL%20到%20TLS%201.3：互联网如何偿还二十年的密码学技术债/)。
+- Debian，[DSA-1571](https://www.debian.org/security/2008/dsa-1571) 与 [SSLkeys](https://wiki.debian.org/SSLkeys)。CVE-2008-0166，可预测的随机数，以及 SSH 密钥必须作废的范围。OpenSSL 还实现着浏览器和网站之间的那条协议，见[从 SSL 到 TLS 1.3：互联网如何偿还二十年的密码学技术债](../tls/)。
 - [Terrapin Attack](https://terrapin-attack.com/)，CVE-2023-48795。序列号不归零时的前缀截断，以及 strict key exchange。
 - Andres Freund，2024-03-29 在 oss-security 的报告，CVE-2024-3094。xz 5.6.0 与 5.6.1 的发布包里针对 sshd 的后门。
 - OpenSSH 手册中的 `-L`、`-R`、`-D`、`-J`，以及 `sshd_config` 里的 `AllowTcpForwarding`、`GatewayPorts`。方向以手册为准：`-L` 的目标地址在服务器侧连接，`-R` 的目标地址在客户端侧连接。

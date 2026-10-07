@@ -1,0 +1,128 @@
+<div class="icmp-fmt-demo" data-type="echo">
+  <style>
+    .icmp-fmt-demo {
+      --fm-fg: var(--fg, #09090b);
+      --fm-muted: var(--muted, #71717a);
+      --fm-line: var(--line, #e4e4e7);
+      --fm-soft: var(--soft, #f4f4f5);
+      --fm-ok: #16a34a;
+      --fm-wait: #d97706;
+      border: 1px solid var(--fm-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--fm-fg);
+      background: #fff;
+    }
+    .icmp-fmt-demo svg { display: block; width: 100%; height: auto; background: var(--fm-soft); }
+    .icmp-fmt-demo text { font-size: 13px; fill: var(--fm-fg); }
+    .icmp-fmt-demo .small { font-size: 11px; fill: var(--fm-muted); }
+    .icmp-fmt-demo .mono { font-family: var(--mono, ui-monospace, monospace); }
+    .icmp-fmt-demo .cell { fill: #fff; stroke: var(--fm-fg); stroke-width: 1.2; }
+    .icmp-fmt-demo .cell.hot { fill: #fffbeb; stroke: var(--fm-wait); }
+    .icmp-fmt-demo .cell.orig { fill: #f0fdf4; stroke: var(--fm-ok); }
+    .icmp-fmt-demo .tick { stroke: #a1a1aa; }
+    .icmp-fmt-demo .brace { fill: none; stroke: var(--fm-muted); stroke-width: 1.2; }
+    .icmp-fmt-demo .v { opacity: 0; transition: opacity .25s; pointer-events: none; }
+    .icmp-fmt-demo[data-type="echo"] .v-echo,
+    .icmp-fmt-demo[data-type="frag"] .v-frag,
+    .icmp-fmt-demo[data-type="ttl"] .v-ttl,
+    .icmp-fmt-demo[data-type="frag"] .v-err,
+    .icmp-fmt-demo[data-type="ttl"] .v-err { opacity: 1; }
+    .icmp-fmt-demo .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--fm-line); }
+    .icmp-fmt-demo button {
+      font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--fm-fg); background: #fff; color: var(--fm-fg); white-space: nowrap;
+    }
+    .icmp-fmt-demo button[aria-pressed="true"] { background: var(--fm-fg); color: #fff; }
+    .icmp-fmt-demo .caption { font-size: 13px; color: var(--fm-muted); line-height: 1.5; padding: 0 14px 12px; }
+    @media (prefers-reduced-motion: reduce) {
+      .icmp-fmt-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 300" role="img" aria-label="ICMP 报文格式：前四个字节是类型、代码和校验和，第二个四字节随类型而变，报错消息后面附上原始包的 IP 头和前 64 位数据">
+    <g class="small mono">
+      <text x="80" y="30" text-anchor="middle">0</text>
+      <text x="240" y="30" text-anchor="middle">8</text>
+      <text x="400" y="30" text-anchor="middle">16</text>
+      <text x="720" y="30" text-anchor="middle">31</text>
+    </g>
+    <line class="tick" x1="80" y1="36" x2="720" y2="36"/>
+
+    <rect class="cell hot" x="80" y="44" width="160" height="36"/>
+    <rect class="cell hot" x="240" y="44" width="160" height="36"/>
+    <rect class="cell" x="400" y="44" width="320" height="36"/>
+    <text x="560" y="67" text-anchor="middle">校验和</text>
+    <g class="v v-echo"><text x="160" y="67" text-anchor="middle">类型 = 8</text><text x="320" y="67" text-anchor="middle">代码 = 0</text></g>
+    <g class="v v-frag"><text x="160" y="67" text-anchor="middle">类型 = 3</text><text x="320" y="67" text-anchor="middle">代码 = 4</text></g>
+    <g class="v v-ttl"><text x="160" y="67" text-anchor="middle">类型 = 11</text><text x="320" y="67" text-anchor="middle">代码 = 0</text></g>
+
+    <g class="v v-echo">
+      <rect class="cell" x="80" y="80" width="320" height="36"/>
+      <rect class="cell" x="400" y="80" width="320" height="36"/>
+      <text x="240" y="103" text-anchor="middle">标识符（区分是哪个 ping 进程）</text>
+      <text x="560" y="103" text-anchor="middle">序号（icmp_seq）</text>
+      <rect class="cell" x="80" y="116" width="640" height="96"/>
+      <text x="400" y="158" text-anchor="middle">数据：任意内容，原样回声</text>
+      <text x="400" y="178" text-anchor="middle" class="small">ping 在这里放发送时刻，回来一减就是往返时间；Loki 在这里藏 shell 命令</text>
+    </g>
+    <g class="v v-frag">
+      <rect class="cell" x="80" y="80" width="320" height="36"/>
+      <rect class="cell hot" x="400" y="80" width="320" height="36"/>
+      <text x="240" y="103" text-anchor="middle">未用（必须为 0）</text>
+      <text x="560" y="103" text-anchor="middle">下一跳 MTU（RFC 1191 新加）</text>
+    </g>
+    <g class="v v-ttl">
+      <rect class="cell" x="80" y="80" width="640" height="36"/>
+      <text x="400" y="103" text-anchor="middle">未用（必须为 0）</text>
+    </g>
+    <g class="v v-err">
+      <rect class="cell orig" x="80" y="116" width="640" height="60"/>
+      <text x="400" y="144" text-anchor="middle">惹祸的那个原始包的 IP 头（20 字节起）</text>
+      <text x="400" y="162" text-anchor="middle" class="small">告诉发送方：是你发往哪里的、哪种协议的包出了事</text>
+      <rect class="cell orig" x="80" y="176" width="160" height="36"/>
+      <rect class="cell orig" x="240" y="176" width="160" height="36"/>
+      <rect class="cell orig" x="400" y="176" width="320" height="36"/>
+      <text x="160" y="199" text-anchor="middle">源端口</text>
+      <text x="320" y="199" text-anchor="middle">目的端口</text>
+      <text x="560" y="199" text-anchor="middle" class="small">UDP 长度和校验和 / TCP 序号</text>
+      <path class="brace" d="M730 176 q8 0 8 8 v10 l6 4 l-6 4 v10 q0 8 -8 8"/>
+      <text x="752" y="196" class="small">原始数据</text>
+      <text x="752" y="210" class="small">前 64 位</text>
+    </g>
+
+    <text class="small" x="400" y="248" text-anchor="middle">ICMP 报文本身装在 IP 包里（IP 头的协议号 = 1），但 RFC 792 说它是 IP 不可分割的一部分</text>
+    <text class="small v v-err" x="400" y="270" text-anchor="middle">64 位正好装下端口号：traceroute 靠它对上探测包，盲连接重置攻击也靠它伪造报错</text>
+  </svg>
+
+  <div class="bar">
+    <button type="button" data-t="echo" aria-pressed="true">回显请求 8/0</button>
+    <button type="button" data-t="frag" aria-pressed="false">需要分片 3/4</button>
+    <button type="button" data-t="ttl" aria-pressed="false">超时 11/0</button>
+  </div>
+  <div class="caption" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var caption = root.querySelector(".caption");
+      var notes = {
+        echo: "回显请求和应答（类型 8 和 0）是一对“查询”消息：数据区可以装任意内容，对方原样送回。",
+        frag: "“需要分片但设了 DF”是一条报错：路由器把原始包的开头带回去，并在第二行告诉发送方下一跳能过多大的包。PMTUD 全靠它。",
+        ttl: "超时（类型 11）也是报错：TTL 减到 0 的那台路由器丢掉包、回这一条，源地址就是它自己。traceroute 全靠它。"
+      };
+      function pick(t) {
+        root.setAttribute("data-type", t);
+        root.querySelectorAll("button").forEach(function (b) {
+          b.setAttribute("aria-pressed", b.getAttribute("data-t") === t ? "true" : "false");
+        });
+        caption.textContent = notes[t];
+      }
+      root.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function () { pick(b.getAttribute("data-t")); });
+      });
+      pick("echo");
+    })();
+  </script>
+</div>

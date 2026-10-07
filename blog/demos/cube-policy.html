@@ -1,0 +1,87 @@
+<div class="cube-policy-demo">
+  <style>
+    .cube-policy-demo {
+      --cp-fg: var(--fg, #09090b);
+      --cp-muted: var(--muted, #71717a);
+      --cp-line: var(--line, #e4e4e7);
+      --cp-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--cp-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .cube-policy-demo svg { display: block; width: 100%; height: auto; }
+    .cube-policy-demo text { font-size: 12.5px; fill: var(--cp-fg); }
+    .cube-policy-demo .s { font-size: 11px; fill: var(--cp-muted); }
+    .cube-policy-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .cube-policy-demo .q { fill: #fff; stroke: var(--cp-fg); stroke-width: 1.2; }
+    .cube-policy-demo .start { fill: var(--cp-soft); stroke: var(--cp-line); }
+    .cube-policy-demo .ok { fill: #f0fdf4; stroke: #16a34a; }
+    .cube-policy-demo .l7 { fill: #eff6ff; stroke: #2563eb; }
+    .cube-policy-demo .no { fill: #fef2f2; stroke: #dc2626; }
+    .cube-policy-demo .gw { fill: var(--cp-soft); stroke: #a1a1aa; }
+    .cube-policy-demo .ln { fill: none; stroke: var(--cp-fg); stroke-width: 1.2; }
+    .cube-policy-demo .yes { font-size: 11px; fill: #16a34a; font-weight: 600; }
+    .cube-policy-demo .nay { font-size: 11px; fill: var(--cp-muted); font-weight: 600; }
+    .cube-policy-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--cp-muted); border-top: 1px solid var(--cp-line);
+    }
+  </style>
+  <svg viewBox="0 0 800 420" role="img" aria-label="from_cube 对一个出站报文的判定顺序：网关、allow_out_v3、deny_out、默认放行">
+    <defs>
+      <marker id="cp-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+    </defs>
+
+    <rect class="start" x="150" y="14" width="340" height="36" rx="18"/>
+    <text x="320" y="37" text-anchor="middle">沙箱发出一个 IPv4 报文（TAP 入口）</text>
+
+    <rect class="q" x="150" y="76" width="340" height="44" rx="6"/>
+    <text x="320" y="96" text-anchor="middle">目的地址是网关 169.254.68.5？</text>
+    <text class="s" x="320" y="112" text-anchor="middle">沙箱和宿主机之间的内部流量</text>
+
+    <rect class="q" x="150" y="152" width="340" height="52" rx="6"/>
+    <text x="320" y="173" text-anchor="middle" class="m">allow_out_v3 命中且未过期？</text>
+    <text class="s" x="320" y="191" text-anchor="middle">先按 IP+端口（/48）查，再回落到 IP（/32）和网段</text>
+
+    <rect class="q" x="150" y="238" width="340" height="52" rx="6"/>
+    <text x="320" y="259" text-anchor="middle" class="m">deny_out 命中？</text>
+    <text class="s" x="320" y="277" text-anchor="middle">五个私网段恒在；关掉公网时多一条 0.0.0.0/0</text>
+
+    <rect class="ok" x="150" y="330" width="340" height="40" rx="6"/>
+    <text x="320" y="355" text-anchor="middle">默认放行：SNAT 出网</text>
+
+    <path class="ln" d="M320 50 V75" marker-end="url(#cp-ar)"/>
+    <path class="ln" d="M320 120 V151" marker-end="url(#cp-ar)"/>
+    <text class="nay" x="328" y="140">否</text>
+    <path class="ln" d="M320 204 V237" marker-end="url(#cp-ar)"/>
+    <text class="nay" x="328" y="224">否</text>
+    <path class="ln" d="M320 290 V329" marker-end="url(#cp-ar)"/>
+    <text class="nay" x="328" y="314">否</text>
+
+    <rect class="gw" x="540" y="76" width="240" height="44" rx="6"/>
+    <text x="660" y="96" text-anchor="middle">只放 ICMP 和非 SYN 的 TCP</text>
+    <text class="s" x="660" y="112" text-anchor="middle">沙箱主动连宿主机的 SYN 一律丢掉</text>
+    <path class="ln" d="M490 98 H539" marker-end="url(#cp-ar)"/>
+    <text class="yes" x="512" y="92" text-anchor="middle">是</text>
+
+    <rect class="l7" x="540" y="140" width="240" height="36" rx="6"/>
+    <text x="660" y="163" text-anchor="middle">要求 L7 的 TCP → 打标记交 CubeEgress</text>
+    <rect class="ok" x="540" y="184" width="240" height="32" rx="6"/>
+    <text x="660" y="205" text-anchor="middle">其余 → SNAT 出网</text>
+    <path class="ln" d="M490 178 H515 V158 H539" marker-end="url(#cp-ar)"/>
+    <path class="ln" d="M515 178 V200 H539" marker-end="url(#cp-ar)"/>
+    <text class="yes" x="502" y="172" text-anchor="middle">是</text>
+
+    <rect class="no" x="540" y="246" width="240" height="36" rx="6"/>
+    <text x="660" y="269" text-anchor="middle">拒绝；TCP 当场回一个 RST</text>
+    <path class="ln" d="M490 264 H539" marker-end="url(#cp-ar)"/>
+    <text class="yes" x="512" y="258" text-anchor="middle">是</text>
+
+    <text class="s" x="320" y="398" text-anchor="middle">两张表都是“每块 TAP 一棵 LPM trie”，外层用 TAP 的 ifindex 索引</text>
+  </svg>
+  <p class="cap">放行表优先于拒绝表，所以“先拒绝 0.0.0.0/0、再逐条放行”就是默认不出网。DNS 学到的 IP 也写进同一张放行表，判定路径不用为它们拐弯。</p>
+</div>

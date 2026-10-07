@@ -1,0 +1,89 @@
+<div class="cube-tpl-demo">
+  <style>
+    .cube-tpl-demo {
+      --ct-fg: var(--fg, #09090b);
+      --ct-muted: var(--muted, #71717a);
+      --ct-line: var(--line, #e4e4e7);
+      --ct-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--ct-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .cube-tpl-demo svg { display: block; width: 100%; height: auto; }
+    .cube-tpl-demo text { font-size: 12.5px; fill: var(--ct-fg); }
+    .cube-tpl-demo .s { font-size: 11px; fill: var(--ct-muted); }
+    .cube-tpl-demo .zone { fill: var(--ct-soft); stroke: var(--ct-line); }
+    .cube-tpl-demo .zl { font-size: 12px; font-weight: 600; fill: var(--ct-muted); }
+    .cube-tpl-demo .box { fill: #fff; stroke: var(--ct-fg); stroke-width: 1.2; }
+    .cube-tpl-demo .hot { fill: #fff7ed; stroke: #d97706; stroke-width: 1.4; }
+    .cube-tpl-demo .ln { fill: none; stroke: var(--ct-fg); stroke-width: 1.2; }
+    .cube-tpl-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--ct-muted); border-top: 1px solid var(--ct-line);
+    }
+  </style>
+  <svg viewBox="0 0 800 300" role="img" aria-label="模板流水线：控制面把 OCI 镜像构建成 ext4 并分发，每台计算节点本地启动临时 VM、做快照、登记为本地模板">
+    <defs>
+      <marker id="ct-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+    </defs>
+    <rect class="zone" x="16" y="16" width="768" height="112" rx="8"/>
+    <text class="zl" x="28" y="34">控制面：只做一次</text>
+
+    <rect class="box" x="32" y="46" width="150" height="64" rx="6"/>
+    <text x="107" y="72" text-anchor="middle">OCI 镜像</text>
+    <text class="s" x="107" y="90" text-anchor="middle">rootfs · 入口 · 环境变量</text>
+
+    <rect class="box" x="222" y="46" width="170" height="64" rx="6"/>
+    <text x="307" y="68" text-anchor="middle">TemplateCenter</text>
+    <text class="s" x="307" y="86" text-anchor="middle">拉取 · 解包</text>
+    <text class="s" x="307" y="101" text-anchor="middle">mkfs.ext4 -d 打成镜像</text>
+
+    <rect class="box" x="432" y="46" width="150" height="64" rx="6"/>
+    <text x="507" y="72" text-anchor="middle">制品存储</text>
+    <text class="s" x="507" y="90" text-anchor="middle">S3 / MinIO / 本地</text>
+
+    <rect class="box" x="622" y="46" width="150" height="64" rx="6"/>
+    <text x="697" y="68" text-anchor="middle">CubeMaster</text>
+    <text class="s" x="697" y="86" text-anchor="middle">记录构建任务阶段</text>
+    <text class="s" x="697" y="101" text-anchor="middle">选节点下发副本</text>
+
+    <path class="ln" d="M182 78 H221" marker-end="url(#ct-ar)"/>
+    <path class="ln" d="M392 78 H431" marker-end="url(#ct-ar)"/>
+    <path class="ln" d="M582 78 H621" marker-end="url(#ct-ar)"/>
+
+    <rect class="zone" x="16" y="150" width="768" height="134" rx="8"/>
+    <text class="zl" x="28" y="168">每台计算节点：各做一次</text>
+
+    <path class="ln" d="M697 110 V138 H107 V179" marker-end="url(#ct-ar)"/>
+    <text class="s" x="400" y="133" text-anchor="middle">gRPC 下发模板副本</text>
+
+    <rect class="box" x="32" y="180" width="150" height="80" rx="6"/>
+    <text x="107" y="208" text-anchor="middle">下载 ext4</text>
+    <text class="s" x="107" y="226" text-anchor="middle">落到本机，按制品 ID</text>
+    <text class="s" x="107" y="241" text-anchor="middle">缓存，供 pmem 挂载</text>
+
+    <rect class="box" x="222" y="180" width="170" height="80" rx="6"/>
+    <text x="307" y="208" text-anchor="middle">冷启动一台临时 VM</text>
+    <text class="s" x="307" y="226" text-anchor="middle">跑入口命令</text>
+    <text class="s" x="307" y="241" text-anchor="middle">等 HTTP 探针返回 2xx</text>
+
+    <rect class="hot" x="432" y="180" width="150" height="80" rx="6"/>
+    <text x="507" y="208" text-anchor="middle">冻结并拍快照</text>
+    <text class="s" x="507" y="226" text-anchor="middle">全量内存 → tpl-…-memory</text>
+    <text class="s" x="507" y="241" text-anchor="middle">可写层 → tpl-…-rootfs</text>
+
+    <rect class="box" x="622" y="180" width="150" height="80" rx="6"/>
+    <text x="697" y="208" text-anchor="middle">登记为本地模板</text>
+    <text class="s" x="697" y="226" text-anchor="middle">上报给调度器</text>
+    <text class="s" x="697" y="241" text-anchor="middle">之后只在本机克隆</text>
+
+    <path class="ln" d="M182 220 H221" marker-end="url(#ct-ar)"/>
+    <path class="ln" d="M392 220 H431" marker-end="url(#ct-ar)"/>
+    <path class="ln" d="M582 220 H621" marker-end="url(#ct-ar)"/>
+  </svg>
+  <p class="cap">冷启动内核、跑初始化、等服务就绪这些慢事，都在模板阶段每台节点各付一次。之后每次创建只做本地 reflink 和一次快照恢复，关键路径上不访问网络。</p>
+</div>

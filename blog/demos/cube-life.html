@@ -1,0 +1,74 @@
+<div class="cube-life-demo">
+  <style>
+    .cube-life-demo {
+      --cl-fg: var(--fg, #09090b);
+      --cl-muted: var(--muted, #71717a);
+      --cl-line: var(--line, #e4e4e7);
+      border: 1px solid var(--cl-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .cube-life-demo svg { display: block; width: 100%; height: auto; }
+    .cube-life-demo text { font-size: 12px; fill: var(--cl-fg); }
+    .cube-life-demo .s { font-size: 11px; fill: var(--cl-muted); }
+    .cube-life-demo .st { fill: #fff; stroke: var(--cl-fg); stroke-width: 1.3; }
+    .cube-life-demo .run { fill: #f0fdf4; stroke: #16a34a; }
+    .cube-life-demo .mid { fill: #fffbeb; stroke: #d97706; }
+    .cube-life-demo .end { fill: #f4f4f5; stroke: var(--cl-muted); }
+    .cube-life-demo .nm { font-size: 13px; font-weight: 600; }
+    .cube-life-demo .ln { fill: none; stroke: var(--cl-fg); stroke-width: 1.2; }
+    .cube-life-demo .kill { fill: none; stroke: var(--cl-muted); stroke-width: 1.2; stroke-dasharray: 5 4; }
+    .cube-life-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--cl-muted); border-top: 1px solid var(--cl-line);
+    }
+  </style>
+  <svg viewBox="0 0 800 240" role="img" aria-label="沙箱状态机：running、pausing、paused、resuming、terminated 之间的转换">
+    <defs>
+      <marker id="cl-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+      <marker id="cl-ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#71717a"/>
+      </marker>
+    </defs>
+
+    <path class="kill" d="M100 80 C 100 22, 715 22, 715 79" marker-end="url(#cl-ar-g)"/>
+    <text class="s" x="408" y="34" text-anchor="middle">kill · 空闲超时且 on_timeout=kill（默认）</text>
+
+    <rect class="st run" x="40" y="80" width="120" height="44" rx="22"/>
+    <text class="nm" x="100" y="100" text-anchor="middle">running</text>
+    <text class="s" x="100" y="115" text-anchor="middle">占着 CPU 和内存</text>
+
+    <rect class="st mid" x="260" y="80" width="120" height="44" rx="22"/>
+    <text class="nm" x="320" y="100" text-anchor="middle">pausing</text>
+    <text class="s" x="320" y="115" text-anchor="middle">代理返回 503</text>
+
+    <rect class="st" x="480" y="80" width="120" height="44" rx="22"/>
+    <text class="nm" x="540" y="100" text-anchor="middle">paused</text>
+    <text class="s" x="540" y="115" text-anchor="middle">只剩盘上的快照</text>
+
+    <rect class="st end" x="660" y="80" width="110" height="44" rx="22"/>
+    <text class="nm" x="715" y="100" text-anchor="middle">terminated</text>
+    <text class="s" x="715" y="115" text-anchor="middle">代理返回 410</text>
+
+    <rect class="st mid" x="260" y="168" width="120" height="44" rx="22"/>
+    <text class="nm" x="320" y="188" text-anchor="middle">resuming</text>
+    <text class="s" x="320" y="203" text-anchor="middle">同一个 ID 重新创建</text>
+
+    <path class="ln" d="M160 102 H259" marker-end="url(#cl-ar)"/>
+    <text class="s" x="210" y="95" text-anchor="middle">空闲 · pause</text>
+    <path class="ln" d="M380 102 H479" marker-end="url(#cl-ar)"/>
+    <text class="s" x="430" y="95" text-anchor="middle">快照落盘</text>
+    <path class="kill" d="M600 102 H659" marker-end="url(#cl-ar-g)"/>
+    <text class="s" x="630" y="95" text-anchor="middle">kill</text>
+
+    <path class="ln" d="M540 124 V190 H381" marker-end="url(#cl-ar)"/>
+    <text class="s" x="460" y="206" text-anchor="middle">请求到达 · auto_resume</text>
+    <path class="ln" d="M260 190 H100 V125" marker-end="url(#cl-ar)"/>
+    <text class="s" x="180" y="206" text-anchor="middle">restore 完成</text>
+  </svg>
+  <p class="cap">暂停不是让 vCPU 停在原地，而是把内存和磁盘写成快照、让整个 VMM 进程退出。恢复走的是一次带暂停快照的创建，配了 S3 后端时可以落到另一台节点上。</p>
+</div>

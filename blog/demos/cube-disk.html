@@ -1,0 +1,87 @@
+<div class="cube-disk-demo">
+  <style>
+    .cube-disk-demo {
+      --cd-fg: var(--fg, #09090b);
+      --cd-muted: var(--muted, #71717a);
+      --cd-line: var(--line, #e4e4e7);
+      --cd-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--cd-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .cube-disk-demo svg { display: block; width: 100%; height: auto; }
+    .cube-disk-demo text { font-size: 12.5px; fill: var(--cd-fg); }
+    .cube-disk-demo .s { font-size: 11px; fill: var(--cd-muted); }
+    .cube-disk-demo .m { font-family: var(--mono, ui-monospace, monospace); font-size: 12px; }
+    .cube-disk-demo .hd { font-size: 12px; font-weight: 600; fill: var(--cd-muted); }
+    .cube-disk-demo .ro { fill: var(--cd-soft); stroke: #a1a1aa; }
+    .cube-disk-demo .rw { fill: #fffbeb; stroke: #d97706; stroke-width: 1.4; }
+    .cube-disk-demo .fs { fill: #eff6ff; stroke: #60a5fa; }
+    .cube-disk-demo .gst { fill: #fff; stroke: var(--cd-fg); stroke-width: 1.2; }
+    .cube-disk-demo .ln { fill: none; stroke: var(--cd-fg); stroke-width: 1.2; }
+    .cube-disk-demo .dev { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; fill: var(--cd-fg); }
+    .cube-disk-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--cd-muted); border-top: 1px solid var(--cd-line);
+    }
+  </style>
+  <svg viewBox="0 0 800 372" role="img" aria-label="一台沙箱的存储：三块只读 virtio-pmem、一块可写 virtio-blk、virtio-fs 共享目录，以及客户机里组装出的 overlayfs 根文件系统">
+    <defs>
+      <marker id="cd-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+    </defs>
+    <text class="hd" x="30" y="34">宿主机上的文件</text>
+    <text class="hd" x="400" y="34" text-anchor="middle">交给 VM 的设备</text>
+    <text class="hd" x="480" y="34">客户机里看到的</text>
+
+    <rect class="ro" x="30" y="48" width="290" height="44" rx="6"/>
+    <text x="44" y="66">客户机 OS 镜像</text>
+    <text class="s" x="44" y="82">所有沙箱共用 · 只读</text>
+    <path class="ln" d="M320 70 H479" marker-end="url(#cd-ar)"/>
+    <text class="dev" x="400" y="64" text-anchor="middle">virtio-pmem0</text>
+    <rect class="gst" x="480" y="48" width="290" height="44" rx="6"/>
+    <text x="494" y="66" class="m">/</text>
+    <text class="s" x="494" y="82">客户机系统盘，DAX 直读宿主机页缓存</text>
+
+    <rect class="ro" x="30" y="104" width="290" height="44" rx="6"/>
+    <text x="44" y="122" class="m">cube-agent.ext4</text>
+    <text class="s" x="44" y="138">所有沙箱共用 · 只读</text>
+    <path class="ln" d="M320 126 H479" marker-end="url(#cd-ar)"/>
+    <text class="dev" x="400" y="120" text-anchor="middle">virtio-pmem1</text>
+    <rect class="gst" x="480" y="104" width="290" height="44" rx="6"/>
+    <text x="494" y="122" class="m">/run/support/cube-agent</text>
+    <text class="s" x="494" y="138">cube-init 挂上后 exec 成 PID 1</text>
+
+    <rect class="ro" x="30" y="160" width="290" height="44" rx="6"/>
+    <text x="44" y="178" class="m">&lt;artifact&gt;.ext4</text>
+    <text class="s" x="44" y="194">OCI 镜像解包成的 ext4 · 同模板共用 · 只读</text>
+    <path class="ln" d="M320 182 H479" marker-end="url(#cd-ar)"/>
+    <text class="dev" x="400" y="176" text-anchor="middle">virtio-pmem2</text>
+
+    <rect class="rw" x="30" y="216" width="290" height="44" rx="6"/>
+    <text x="44" y="234" class="m">sb-&lt;id&gt;-rootfs-gen0</text>
+    <text class="s" x="44" y="250">FICLONE 自 tpl-&lt;模板&gt;-rootfs · 每台沙箱私有</text>
+    <path class="ln" d="M320 238 H479" marker-end="url(#cd-ar)"/>
+    <text class="dev" x="400" y="232" text-anchor="middle">virtio-blk</text>
+
+    <rect class="gst" x="480" y="160" width="290" height="100" rx="6"/>
+    <text x="494" y="180">容器 rootfs = overlayfs</text>
+    <text class="s" x="494" y="200">lower：模板镜像（pmem，只读，DAX）</text>
+    <text class="s" x="494" y="218">upper / work：可写盘上的 disk/&lt;容器 ID&gt;</text>
+    <text class="s" x="494" y="236">读走模板镜像，写只落在可写层</text>
+    <text class="s" x="494" y="252">可写盘本身是 ext4，不带日志</text>
+
+    <rect class="fs" x="30" y="292" width="290" height="44" rx="6"/>
+    <text x="44" y="310" class="m">/data/cubelet/hostdir/&lt;id&gt;/…</text>
+    <text class="s" x="44" y="326">宿主机目录或 Volume 插件挂载点的 bind</text>
+    <path class="ln" d="M320 314 H479" marker-end="url(#cd-ar)"/>
+    <text class="dev" x="400" y="308" text-anchor="middle">virtio-fs</text>
+    <rect class="gst" x="480" y="292" width="290" height="44" rx="6"/>
+    <text x="494" y="310">用户指定的挂载点</text>
+    <text class="s" x="494" y="326">VMM 内置的 virtiofsd 透传，和宿主机实时同步</text>
+  </svg>
+  <p class="cap">灰色是只读、全机共享的文件，橙色是每台沙箱私有的可写层，蓝色是穿透到宿主机的共享目录。创建一台沙箱真正新增的只有橙色那一个文件，而它是一次 reflink 克隆出来的。</p>
+</div>

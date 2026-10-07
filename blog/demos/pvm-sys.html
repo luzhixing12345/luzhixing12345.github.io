@@ -1,0 +1,144 @@
+<div class="pvm-sys-demo">
+  <style>
+    .pvm-sys-demo {
+      --ps-fg: var(--fg, #09090b);
+      --ps-muted: var(--muted, #71717a);
+      --ps-line: var(--line, #e4e4e7);
+      --ps-soft: var(--soft, #f4f4f5);
+      --ps-hi: #2563eb;
+      --ps-hv: #d97706;
+      border: 1px solid var(--ps-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--ps-fg);
+    }
+    .pvm-sys-demo svg { display: block; width: 100%; height: auto; background: var(--ps-soft); }
+    .pvm-sys-demo text { font-size: 12.5px; fill: var(--ps-fg); }
+    .pvm-sys-demo .s { font-size: 11px; fill: var(--ps-muted); }
+    .pvm-sys-demo .band { fill: #fff; stroke: var(--ps-line); }
+    .pvm-sys-demo .ring { font-size: 11px; font-weight: 600; fill: var(--ps-hi); }
+    .pvm-sys-demo .lane { stroke: #d4d4d8; stroke-width: 1; stroke-dasharray: 3 4; }
+    .pvm-sys-demo .ll { font-size: 12px; font-weight: 600; }
+    .pvm-sys-demo .seg { fill: none; stroke: var(--ps-hi); stroke-width: 2; }
+    .pvm-sys-demo .seg.hv { stroke: var(--ps-hv); }
+    .pvm-sys-demo .dot { fill: #fff; stroke: var(--ps-fg); stroke-width: 1.3; }
+    .pvm-sys-demo .dot.hv { stroke: var(--ps-hv); fill: #fffbeb; }
+    .pvm-sys-demo .num { font-size: 10.5px; font-weight: 600; }
+    .pvm-sys-demo .bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px;
+      border-top: 1px solid var(--ps-line);
+    }
+    .pvm-sys-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--ps-fg); border-radius: 6px; background: #fff; color: var(--ps-fg);
+    }
+    .pvm-sys-demo button[aria-pressed="true"] { background: var(--ps-fg); color: #fff; }
+    .pvm-sys-demo .lat { margin-left: auto; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .pvm-sys-demo .lat b { font-weight: 600; }
+    .pvm-sys-demo ol {
+      margin: 0; padding: 0 14px 12px 34px; font-size: 13px; line-height: 1.7;
+    }
+  </style>
+
+  <svg viewBox="0 0 800 236" role="img" aria-label="PVM 客户机里一次系统调用的路径。没有直通时要进出 PVM hypervisor 两次；有直通时 switcher 直接在客户机用户态和内核之间切换"></svg>
+
+  <div class="bar">
+    <button type="button" data-m="slow" aria-pressed="true">没有直通</button>
+    <button type="button" data-m="ds" aria-pressed="false">直通（direct switch）</button>
+    <span class="lat"></span>
+  </div>
+  <ol aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var ol = root.querySelector("ol");
+      var lat = root.querySelector(".lat");
+      var NS = "http://www.w3.org/2000/svg";
+      var LANES = ["客户机用户态", "客户机内核", "switcher", "kvm-pvm.ko"];
+      var Y = [48, 96, 158, 206];
+      var X0 = 170, X1 = 760;
+
+      var paths = {
+        slow: {
+          lat: "嵌套环境 getpid：<b>1.93 μs</b>（嵌套 KVM 0.23 μs）",
+          p: [
+            [0, "用户进程执行 syscall。客户机在硬件 ring3，CPU 按宿主机的 MSR_LSTAR 跳进 h_ring0 的入口代码。"],
+            [2, "入口代码看到 switcher 处于活动状态，知道这不是宿主机自己的进程，把它当成一次 VM exit。"],
+            [3, "kvm-pvm 收到退出原因“来自用户态的系统调用”：把用户态的 RIP、RFLAGS 等存进 PVCS，换上客户机内核的页表和 GSBASE。"],
+            [2, "VM entry：kvm-pvm 调用 switcher 的入口函数，准备回到客户机。"],
+            [1, "客户机内核从自己的 syscall 入口开始执行 getpid。"],
+            [2, "内核要返回用户态，不能用 sysret（特权指令），而是执行 ERETU：一条位于约定地址的 SYSCALL。"],
+            [3, "又一次 VM exit。kvm-pvm 从 PVCS 读出用户态现场，换回用户页表。"],
+            [2, "VM entry。"],
+            [0, "回到用户进程。一次系统调用，进出 hypervisor 各两次。"]
+          ]
+        },
+        ds: {
+          lat: "嵌套环境 getpid：<b>0.30 μs</b>（嵌套 KVM 0.23 μs）",
+          p: [
+            [0, "用户进程执行 syscall，进入 h_ring0 的 switcher。"],
+            [2, "switcher 查每 CPU 的 switch_flags：当前是用户态、内核页表已备好，允许直通。它自己把现场写进 PVCS，换 CR3 和 GSBASE。"],
+            [1, "sysretq 直接落到客户机内核的 syscall 入口，执行 getpid。"],
+            [2, "内核执行 ERETU。switcher 认出返回地址正是约定的 retu_rip，CS/SS 也是常见值，于是继续直通。"],
+            [0, "从 PVCS 恢复用户态现场，sysretq 回到用户进程。全程没有进 kvm-pvm。"]
+          ]
+        }
+      };
+
+      function el(tag, attrs, text) {
+        var e = document.createElementNS(NS, tag);
+        for (var k in attrs) e.setAttribute(k, attrs[k]);
+        if (text != null) e.textContent = text;
+        svg.appendChild(e);
+        return e;
+      }
+
+      function render(m) {
+        var path = paths[m].p;
+        var dx = (X1 - X0) / (path.length - 1);
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+        el("rect", { x: 10, y: 22, width: 780, height: 96, rx: 6, "class": "band" });
+        el("text", { x: 20, y: 36, "class": "ring" }, "h_ring3");
+        el("rect", { x: 10, y: 132, width: 780, height: 96, rx: 6, "class": "band" });
+        el("text", { x: 20, y: 146, "class": "ring" }, "h_ring0");
+        LANES.forEach(function (l, i) {
+          el("line", { x1: X0 - 14, x2: X1 + 14, y1: Y[i], y2: Y[i], "class": "lane" });
+          el("text", { x: 20, y: Y[i] + 4, "class": "ll" }, l);
+        });
+
+        for (var i = 1; i < path.length; i++) {
+          var a = path[i - 1][0], b = path[i][0];
+          el("path", {
+            "class": "seg" + (a === 3 || b === 3 ? " hv" : ""),
+            d: "M" + (X0 + (i - 1) * dx) + " " + Y[a] + " L" + (X0 + i * dx) + " " + Y[b]
+          });
+        }
+        path.forEach(function (p, j) {
+          el("circle", { cx: X0 + j * dx, cy: Y[p[0]], r: 9, "class": "dot" + (p[0] === 3 ? " hv" : "") });
+          el("text", { x: X0 + j * dx, y: Y[p[0]] + 4, "text-anchor": "middle", "class": "num" }, String(j + 1));
+        });
+
+        lat.innerHTML = paths[m].lat;
+        ol.innerHTML = "";
+        path.forEach(function (p) {
+          var li = document.createElement("li");
+          li.textContent = p[1];
+          ol.appendChild(li);
+        });
+        root.querySelectorAll("button").forEach(function (b) {
+          b.setAttribute("aria-pressed", b.getAttribute("data-m") === m ? "true" : "false");
+        });
+      }
+
+      root.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function () { render(b.getAttribute("data-m")); });
+      });
+      render("slow");
+    })();
+  </script>
+</div>

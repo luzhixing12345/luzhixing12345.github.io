@@ -134,7 +134,7 @@ def load_blog_config(path: Path) -> dict[str, dict[str, object]]:
             continue
         if raw[0] not in " \t":
             key = _unquote(raw.strip()[:-1].strip() if raw.strip().endswith(":") else raw.strip())
-            current = {"date": "", "tags": [], "public": False}
+            current = {"date": "", "tags": [], "public": False, "slug": ""}
             posts[key] = current
             continue
         if current is None:
@@ -142,6 +142,8 @@ def load_blog_config(path: Path) -> dict[str, dict[str, object]]:
         field, _, value = raw.strip().partition(":")
         if field == "date":
             current["date"] = value.strip()
+        elif field == "slug":
+            current["slug"] = _unquote(value.strip())
         elif field == "tags":
             current["tags"] = _parse_tags(value)
         elif field == "public":
@@ -149,11 +151,12 @@ def load_blog_config(path: Path) -> dict[str, dict[str, object]]:
     return posts
 
 
-def _config_block(name: str, date: str, tags: list[str], public: bool = False) -> str:
+def _config_block(name: str, date: str, tags: list[str], public: bool = False, slug: str = "") -> str:
     quoted = json.dumps(name, ensure_ascii=False)
     tag_text = ", ".join(json.dumps(tag, ensure_ascii=False) for tag in tags)
     flag = "true" if public else "false"
-    return f"{quoted}:\n  date: {date}\n  tags: [{tag_text}]\n  public: {flag}\n"
+    slug_line = f"  slug: {slug}\n" if slug else ""
+    return f"{quoted}:\n{slug_line}  date: {date}\n  tags: [{tag_text}]\n  public: {flag}\n"
 
 
 def ensure_blog_config(files: list[Path]) -> dict[str, dict[str, object]]:
@@ -174,11 +177,21 @@ def ensure_blog_config(files: list[Path]) -> dict[str, dict[str, object]]:
         "# 已有条目的 date 不会在构建时改写。\n"
         "# 新文章会追加到末尾：date 为当天，tags 留空，public 为 false。\n"
         "# public 为 true 才出现在站点上。省略或 false 都不生成页面。\n"
-        "# tags 用方括号列出，点击标签会打开同标签的文章列表。\n\n"
+        "# tags 用方括号列出，点击标签会打开同标签的文章列表。\n"
+        "# slug 是文章网址 /blog/<slug>/，只用小写字母、数字和连字符。省略时用文件名。\n\n"
     )
     if not path.exists():
         known = list(config)
-        blocks = [_config_block(name, str(config[name].get("date") or today), list(config[name].get("tags") or []), bool(config[name].get("public"))) for name in known]
+        blocks = [
+            _config_block(
+                name,
+                str(config[name].get("date") or today),
+                list(config[name].get("tags") or []),
+                bool(config[name].get("public")),
+                str(config[name].get("slug") or ""),
+            )
+            for name in known
+        ]
         path.write_text(header + "\n".join(blocks), encoding="utf-8")
     elif missing:
         with path.open("a", encoding="utf-8") as handle:
@@ -246,15 +259,20 @@ def collect_posts() -> list[Post]:
     used: set[str] = set()
     posts: list[Post] = []
     for path in files:
-        stem = path.stem
+        entry = meta.get(path.name) or {}
+        slug = str(entry.get("slug") or "")
+        if slug and not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug):
+            raise SystemExit(f"invalid slug {slug!r} for {path.name}: use lowercase letters, digits and hyphens")
+        stem = slug or path.stem
         if stem in used:
+            if slug:
+                raise SystemExit(f"duplicate slug {slug!r} for {path.name}")
             stem = path.relative_to(blog).with_suffix("").as_posix().replace("/", "-")
         used.add(stem)
-        text = path.read_text(encoding="utf-8")
-        doc = parse_markdown(text, str(path))
-        entry = meta.get(path.name) or {}
         if not entry.get("public"):
             continue
+        text = path.read_text(encoding="utf-8")
+        doc = parse_markdown(text, str(path))
         tags = tuple(tag for tag in entry.get("tags") or [] if isinstance(tag, str))
         posts.append(
             Post(

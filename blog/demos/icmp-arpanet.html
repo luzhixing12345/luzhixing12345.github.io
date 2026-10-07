@@ -1,0 +1,129 @@
+<div class="icmp-arpa-demo" data-step="0">
+  <style>
+    .icmp-arpa-demo {
+      --ar-fg: var(--fg, #09090b);
+      --ar-muted: var(--muted, #71717a);
+      --ar-line: var(--line, #e4e4e7);
+      --ar-soft: var(--soft, #f4f4f5);
+      --ar-ok: #16a34a;
+      --ar-wait: #d97706;
+      border: 1px solid var(--ar-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--ar-fg);
+      background: #fff;
+    }
+    .icmp-arpa-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--ar-soft); }
+    .icmp-arpa-demo text { font-size: 12px; fill: var(--ar-fg); }
+    .icmp-arpa-demo .small { font-size: 11px; fill: var(--ar-muted); }
+    .icmp-arpa-demo .mono { font-family: var(--mono, ui-monospace, monospace); }
+    .icmp-arpa-demo .link { stroke: #a1a1aa; stroke-width: 2; fill: none; transition: stroke .3s, stroke-width .3s; }
+    .icmp-arpa-demo .stub { stroke: #a1a1aa; stroke-width: 1.5; }
+    .icmp-arpa-demo .imp { fill: #fff; stroke: var(--ar-fg); stroke-width: 1.5; }
+    .icmp-arpa-demo .host { fill: #fff; stroke: var(--ar-fg); stroke-width: 1.5; transition: stroke .3s, fill .3s; }
+    .icmp-arpa-demo[data-step="1"] .route { stroke: var(--ar-wait); stroke-width: 3; }
+    .icmp-arpa-demo[data-step="2"] .route { stroke: var(--ar-ok); stroke-width: 3; }
+    .icmp-arpa-demo[data-step="1"] .src,
+    .icmp-arpa-demo[data-step="2"] .dst { stroke: var(--ar-wait); fill: #fffbeb; }
+    .icmp-arpa-demo[data-step="2"] .src { stroke: var(--ar-ok); fill: #f0fdf4; }
+    .icmp-arpa-demo .bubble { opacity: 0; transition: opacity .3s; }
+    .icmp-arpa-demo[data-step="1"] .b-eco,
+    .icmp-arpa-demo[data-step="2"] .b-erp { opacity: 1; }
+    .icmp-arpa-demo .b-eco rect { fill: #fffbeb; stroke: var(--ar-wait); }
+    .icmp-arpa-demo .b-erp rect { fill: #f0fdf4; stroke: var(--ar-ok); }
+    .icmp-arpa-demo .brl { fill: #fff; stroke: var(--ar-fg); stroke-dasharray: 4 3; stroke-width: 1.5; }
+    .icmp-arpa-demo .bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--ar-line); }
+    .icmp-arpa-demo button {
+      font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--ar-fg); background: var(--ar-fg); color: #fff; white-space: nowrap;
+    }
+    .icmp-arpa-demo .caption { font-size: 13px; color: var(--ar-muted); line-height: 1.5; }
+    @media (prefers-reduced-motion: reduce) {
+      .icmp-arpa-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 320" role="img" aria-label="ARPANET 示意图：UCLA 的一台主机经过几台 IMP 向 MIT 的主机发 ECO，对方原样回 ERP">
+    <text x="400" y="24" text-anchor="middle" class="small">ARPANET 示意（节点取自 1970 年代的真实站点，连线已简化）</text>
+
+    <path class="link" d="M110 130 L150 230"/>
+    <path class="link route" d="M150 230 L240 110"/>
+    <path class="link" d="M110 130 L240 110"/>
+    <path class="link route" d="M240 110 L370 80"/>
+    <path class="link route" d="M370 80 L640 110"/>
+    <path class="link" d="M640 110 L660 200"/>
+    <path class="link" d="M660 200 L520 260"/>
+    <path class="link" d="M520 260 L150 230"/>
+
+    <line class="stub" x1="150" y1="230" x2="90" y2="270"/>
+    <line class="stub" x1="640" y1="110" x2="700" y2="60"/>
+    <line class="stub" x1="520" y1="260" x2="470" y2="296"/>
+
+    <g>
+      <circle class="imp" cx="110" cy="130" r="9"/><text x="110" y="112" text-anchor="middle">UCSB</text>
+      <circle class="imp" cx="150" cy="230" r="9"/><text x="172" y="224">UCLA</text>
+      <circle class="imp" cx="240" cy="110" r="9"/><text x="240" y="92" text-anchor="middle">SRI</text>
+      <circle class="imp" cx="370" cy="80" r="9"/><text x="370" y="62" text-anchor="middle">UTAH</text>
+      <circle class="imp" cx="640" cy="110" r="9"/><text x="616" y="134" text-anchor="end">MIT</text>
+      <circle class="imp" cx="660" cy="200" r="9"/><text x="680" y="204">BBN</text>
+      <circle class="imp" cx="520" cy="260" r="9"/><text x="540" y="256">ABERDEEN</text>
+    </g>
+
+    <rect class="host src" x="30" y="262" width="96" height="36" rx="4"/>
+    <text x="78" y="278" text-anchor="middle">主机 A</text>
+    <text x="78" y="292" text-anchor="middle" class="small mono">SIGMA-7</text>
+
+    <rect class="host dst" x="680" y="34" width="96" height="36" rx="4"/>
+    <text x="728" y="50" text-anchor="middle">主机 B</text>
+    <text x="728" y="64" text-anchor="middle" class="small mono">PDP-10</text>
+
+    <rect class="brl" x="400" y="280" width="88" height="30" rx="4"/>
+    <text x="444" y="299" text-anchor="middle" class="small">BRL，ping 的故乡</text>
+
+    <g class="bubble b-eco">
+      <rect x="250" y="134" width="210" height="44" rx="6"/>
+      <text x="355" y="152" text-anchor="middle" class="mono">ECO  "testing 123"</text>
+      <text x="355" y="169" text-anchor="middle" class="small">A → B：你还活着吗？</text>
+    </g>
+    <g class="bubble b-erp">
+      <rect x="250" y="134" width="210" height="44" rx="6"/>
+      <text x="355" y="152" text-anchor="middle" class="mono">ERP  "testing 123"</text>
+      <text x="355" y="169" text-anchor="middle" class="small">B → A：原样奉还，我在</text>
+    </g>
+
+    <g transform="translate(560 286)">
+      <circle class="imp" cx="0" cy="0" r="6"/><text x="12" y="4" class="small">IMP（分组交换机）</text>
+      <rect class="host" x="120" y="-8" width="20" height="16" rx="2"/><text x="146" y="4" class="small">主机</text>
+    </g>
+  </svg>
+
+  <div class="bar">
+    <button type="button"></button>
+    <span class="caption" aria-live="polite"></span>
+  </div>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var caption = root.querySelector(".caption");
+      var steps = [
+        ["主机 A 发一条 ECO", "IMP 只负责把消息一跳一跳转下去；ECO 和 ERP 是主机与主机之间的对话，写在 NCP 的主机—主机协议里。"],
+        ["主机 B 回一条 ERP", "主机 A 发出 ECO，带上一段任意的测试数据。"],
+        ["重来", "主机 B 必须尽快把同一段数据原样送回。没收到 ECO，就不许主动发 ERP。"]
+      ];
+      var step = 0;
+      function show() {
+        root.setAttribute("data-step", String(step));
+        btn.textContent = steps[step][0];
+        caption.textContent = steps[step][1];
+      }
+      function advance() { step = (step + 1) % steps.length; show(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      show();
+    })();
+  </script>
+</div>

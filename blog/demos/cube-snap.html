@@ -1,0 +1,94 @@
+<div class="cube-snap-demo">
+  <style>
+    .cube-snap-demo {
+      --cs-fg: var(--fg, #09090b);
+      --cs-muted: var(--muted, #71717a);
+      --cs-line: var(--line, #e4e4e7);
+      --cs-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--cs-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .cube-snap-demo svg { display: block; width: 100%; height: auto; }
+    .cube-snap-demo text { font-size: 12px; fill: var(--cs-fg); }
+    .cube-snap-demo .s { font-size: 11px; fill: var(--cs-muted); }
+    .cube-snap-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .cube-snap-demo .zone { fill: var(--cs-soft); stroke: var(--cs-line); }
+    .cube-snap-demo .zl { font-size: 12px; font-weight: 600; fill: var(--cs-muted); }
+    .cube-snap-demo .box { fill: #fff; stroke: var(--cs-fg); stroke-width: 1.2; }
+    .cube-snap-demo .q { fill: #fff; stroke: var(--cs-fg); stroke-width: 1.2; }
+    .cube-snap-demo .best { fill: #f0fdf4; stroke: #16a34a; }
+    .cube-snap-demo .mid { fill: #fffbeb; stroke: #d97706; }
+    .cube-snap-demo .worst { fill: #fef2f2; stroke: #dc2626; }
+    .cube-snap-demo .frz { fill: #eff6ff; stroke: #93c5fd; stroke-dasharray: 5 4; }
+    .cube-snap-demo .ln { fill: none; stroke: var(--cs-fg); stroke-width: 1.2; }
+    .cube-snap-demo .yes { font-size: 11px; font-weight: 600; fill: #16a34a; }
+    .cube-snap-demo .nay { font-size: 11px; font-weight: 600; fill: var(--cs-muted); }
+    .cube-snap-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--cs-muted); border-top: 1px solid var(--cs-line);
+    }
+  </style>
+  <svg viewBox="0 0 800 400" role="img" aria-label="提交一份快照的流程：Cubelet 选择内存基线，VMM 选择写出模式，从 soft-dirty 逐级降级到增量和全量">
+    <defs>
+      <marker id="cs-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+    </defs>
+
+    <rect class="frz" x="14" y="14" width="772" height="320" rx="10"/>
+    <text class="zl" x="28" y="34">客户机全程冻结（vCPU 暂停）</text>
+
+    <rect class="zone" x="30" y="46" width="240" height="270" rx="8"/>
+    <text class="zl" x="42" y="64">Cubelet：选基线</text>
+    <rect class="q" x="44" y="76" width="212" height="52" rx="6"/>
+    <text x="150" y="98" text-anchor="middle">能找到上一份内存快照？</text>
+    <text class="s" x="150" y="115" text-anchor="middle">沿快照绑定和目录查血缘</text>
+
+    <rect class="box" x="44" y="156" width="212" height="52" rx="6"/>
+    <text x="150" y="177" text-anchor="middle">FICLONE 上一份内存文件</text>
+    <text class="s" x="150" y="194" text-anchor="middle">请求 soft-dirty 模式</text>
+
+    <rect class="box" x="44" y="244" width="212" height="52" rx="6"/>
+    <text x="150" y="265" text-anchor="middle">新建空内存卷</text>
+    <text class="s" x="150" y="282" text-anchor="middle">请求 full 模式</text>
+
+    <path class="ln" d="M150 128 V155" marker-end="url(#cs-ar)"/>
+    <text class="yes" x="158" y="146">是</text>
+    <path class="ln" d="M44 102 H36 V270 H43" marker-end="url(#cs-ar)"/>
+    <text class="nay" x="24" y="190" text-anchor="middle">否</text>
+
+    <rect class="zone" x="290" y="46" width="480" height="270" rx="8"/>
+    <text class="zl" x="302" y="64">CubeHypervisor：选要写的页</text>
+
+    <rect class="q" x="306" y="76" width="200" height="52" rx="6"/>
+    <text x="406" y="98" text-anchor="middle">soft-dirty 已开启？</text>
+    <text class="s" x="406" y="115" text-anchor="middle">上一轮成功 clear_refs</text>
+    <path class="ln" d="M256 182 H280 V102 H305" marker-end="url(#cs-ar)"/>
+
+    <rect class="best" x="536" y="76" width="220" height="52" rx="6"/>
+    <text x="646" y="96" text-anchor="middle">写 在场 ∧ 匿名 ∧ 脏 的页</text>
+    <text class="s" x="646" y="114" text-anchor="middle">写完 clear_refs，下一轮还是增量</text>
+    <path class="ln" d="M506 102 H535" marker-end="url(#cs-ar)"/>
+    <text class="yes" x="520" y="96" text-anchor="middle">是</text>
+
+    <rect class="mid" x="306" y="156" width="450" height="68" rx="6"/>
+    <text x="531" y="176" text-anchor="middle">写 在场 ∧ 匿名 的页（pagemap 增量）</text>
+    <text class="s" x="531" y="194" text-anchor="middle">写完探测内核是否支持 soft-dirty：支持就 clear_refs 并开启</text>
+    <text class="s" x="531" y="211" text-anchor="middle">不支持（如没开 CONFIG_MEM_SOFT_DIRTY）就一直停在这一级</text>
+    <path class="ln" d="M406 128 V155" marker-end="url(#cs-ar)"/>
+    <text class="nay" x="414" y="146">否</text>
+
+    <rect class="worst" x="306" y="244" width="450" height="52" rx="6"/>
+    <text x="531" y="265" text-anchor="middle">写整份客户机内存</text>
+    <text class="s" x="531" y="282" text-anchor="middle">新模板的第一份快照也走这里</text>
+    <path class="ln" d="M256 270 H305" marker-end="url(#cs-ar)"/>
+
+    <rect class="box" x="30" y="350" width="740" height="38" rx="6"/>
+    <text x="400" y="374" text-anchor="middle">rootfs 在同一个冻结窗口里 FICLONE 一份；两边都写完，客户机恢复运行（源沙箱原进程、原映射）</text>
+    <path class="ln" d="M400 334 V349" marker-end="url(#cs-ar)"/>
+  </svg>
+  <p class="cap">三级降级只会让快照变大，不会让操作失败：基线被删、血缘断了就退到全量；内核不支持 soft-dirty 就停在匿名页增量。</p>
+</div>

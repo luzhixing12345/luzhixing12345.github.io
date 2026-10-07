@@ -1,0 +1,196 @@
+<div class="pvm-pf-demo" data-mode="nst">
+  <style>
+    .pvm-pf-demo {
+      --pp-fg: var(--fg, #09090b);
+      --pp-muted: var(--muted, #71717a);
+      --pp-line: var(--line, #e4e4e7);
+      --pp-soft: var(--soft, #f4f4f5);
+      --pp-hi: #2563eb;
+      --pp-l0: #dc2626;
+      border: 1px solid var(--pp-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--pp-fg);
+    }
+    .pvm-pf-demo svg { display: block; width: 100%; height: auto; background: var(--pp-soft); cursor: pointer; }
+    .pvm-pf-demo text { font-size: 12.5px; fill: var(--pp-fg); }
+    .pvm-pf-demo .s { font-size: 11px; fill: var(--pp-muted); }
+    .pvm-pf-demo .lane { stroke: #d4d4d8; stroke-width: 1; stroke-dasharray: 3 4; }
+    .pvm-pf-demo .lane-l0 { stroke: #fca5a5; }
+    .pvm-pf-demo .ll { font-size: 12px; font-weight: 600; }
+    .pvm-pf-demo .ll0 { fill: var(--pp-l0); }
+    .pvm-pf-demo .seg { fill: none; stroke-width: 2; }
+    .pvm-pf-demo .seg.in { stroke: #a1a1aa; stroke-dasharray: 4 3; }
+    .pvm-pf-demo .seg.sw { stroke: var(--pp-hi); }
+    .pvm-pf-demo .seg.l0 { stroke: var(--pp-l0); }
+    .pvm-pf-demo .dot { fill: #fff; stroke: var(--pp-fg); stroke-width: 1.4; }
+    .pvm-pf-demo .dot.cur { fill: var(--pp-fg); }
+    .pvm-pf-demo .dot.l0 { stroke: var(--pp-l0); }
+    .pvm-pf-demo .dot.l0.cur { fill: var(--pp-l0); }
+    .pvm-pf-demo .bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px;
+      border-top: 1px solid var(--pp-line);
+    }
+    .pvm-pf-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--pp-fg); border-radius: 6px; background: #fff; color: var(--pp-fg);
+    }
+    .pvm-pf-demo button[aria-pressed="true"], .pvm-pf-demo button.go { background: var(--pp-fg); color: #fff; }
+    .pvm-pf-demo .cnt { margin-left: auto; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .pvm-pf-demo .cnt b { font-weight: 600; }
+    .pvm-pf-demo .cnt .r { color: var(--pp-l0); }
+    .pvm-pf-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 3.4em; background: #18181b; color: #e4e4e7;
+      font-size: 13px; line-height: 1.7;
+    }
+    .pvm-pf-demo .log .sum { color: #fbbf24; }
+  </style>
+
+  <svg viewBox="0 0 800 236" role="img" aria-label="L2 一次缺页需要的世界切换。嵌套 KVM 下，填 4 级 EPT12 时共 14 次切换、7 次陷入 L0；PVM 下共 12 次切换，不陷入 L0"></svg>
+
+  <div class="bar">
+    <button type="button" data-m="nst" aria-pressed="true">嵌套 KVM（EPT-on-EPT）</button>
+    <button type="button" data-m="pvm" aria-pressed="false">PVM（PVM-on-EPT）</button>
+    <button type="button" class="go"></button>
+    <span class="cnt">世界切换 <b class="n-sw">0</b> · 陷入 L0 <b class="n-l0 r">0</b></span>
+  </div>
+  <p class="log" aria-live="polite"></p>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var go = root.querySelector(".go");
+      var log = root.querySelector(".log");
+      var nSw = root.querySelector(".n-sw");
+      var nL0 = root.querySelector(".n-l0");
+      var NS = "http://www.w3.org/2000/svg";
+      var LANES = [["L2 用户态", 2], ["L2 内核", 2], ["L1 hypervisor", 1], ["L0 宿主", 0]];
+      var Y = [44, 92, 140, 196];
+      var X0 = 150, X1 = 774;
+
+      var paths = {
+        nst: {
+          sum: "一共 14 次世界切换、7 次陷入 L0。EPT12 有 n 级时是 2n+6 次切换、n+3 次陷入 L0。",
+          p: [
+            [0, "L2 进程第一次访问一块新内存。"],
+            [1, "缺页由 L2 内核直接接住，填好 GPT2。这一步硬件就能完成，不发生切换。"],
+            [0, "iret 回到用户态重新访问。GPT2 有了，可 GPA₂ 在 EPT02 里还没有映射。"],
+            [3, "EPT violation：CPU 从 L2 退出到 L0。"],
+            [2, "L0 看出这是 L1 该管的事，把 EPT violation 注入 L1，切到 L1。"],
+            [3, "L1 填 EPT12 第 1 级。EPT12 对 L1 只读，写一次就陷入 L0。"],
+            [2, "L0 模拟这次写入，回到 L1。"],
+            [3, "第 2 级，再陷入 L0。"],
+            [2, "回到 L1。"],
+            [3, "第 3 级，再陷入 L0。"],
+            [2, "回到 L1。"],
+            [3, "第 4 级，再陷入 L0。"],
+            [2, "回到 L1，EPT12 填完。"],
+            [3, "L1 执行 VMRESUME 想恢复 L2，这条指令本身也要陷入 L0。"],
+            [0, "L0 同步 VMCS02 后进入 L2。"],
+            [3, "L2 重新访问，EPT02 里这一项还没合成，又一次 EPT violation。"],
+            [0, "L0 把 EPT12 和 EPT01 合成进 EPT02，回到 L2，这次访问成功。"]
+          ]
+        },
+        pvm: {
+          sum: "一共 12 次世界切换（2n+4），陷入 L0 0 次。每次切换都只是 L1 里的特权级变化。",
+          p: [
+            [0, "L2 进程第一次访问一块新内存。"],
+            [2, "影子页表里没有这个地址，#PF 让 CPU 进入 h_ring0，switcher 把它当作 VM exit 交给 PVM。"],
+            [1, "PVM 把 #PF 注入客户机内核：现场写进共享的 PVCS，换成内核那份影子页表，跳到事件入口。"],
+            [2, "内核填 GPT2 第 1 级。GPT2 对 L2 只读，写一次陷入 PVM，PVM 顺带同步影子页表。"],
+            [1, "回到客户机内核。"],
+            [2, "第 2 级。"],
+            [1, "回到客户机内核。"],
+            [2, "第 3 级。"],
+            [1, "回到客户机内核。"],
+            [2, "第 4 级。"],
+            [1, "回到客户机内核，GPT2 填完。"],
+            [2, "内核用 ERETU 返回用户态，这次不直通，先进 PVM：PVM 趁机把刚填好的映射写进 SPT12（prefault）。"],
+            [0, "回到用户态，访问成功；不会再因为影子页表缺这一项而陷入。"]
+          ]
+        }
+      };
+
+      var mode = "nst", step = 0;
+
+      function el(tag, attrs, text) {
+        var e = document.createElementNS(NS, tag);
+        for (var k in attrs) e.setAttribute(k, attrs[k]);
+        if (text != null) e.textContent = text;
+        svg.appendChild(e);
+        return e;
+      }
+
+      function render() {
+        var path = paths[mode].p;
+        var dx = (X1 - X0) / (path.length - 1);
+        var sw = 0, l0 = 0;
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+        LANES.forEach(function (l, i) {
+          el("line", { x1: X0 - 10, x2: X1 + 10, y1: Y[i], y2: Y[i], "class": "lane" + (i === 3 ? " lane-l0" : "") });
+          el("text", { x: 16, y: Y[i] + 4, "class": "ll" + (i === 3 ? " ll0" : "") }, l[0]);
+        });
+        el("text", { x: 16, y: 226, "class": "s" }, mode === "nst"
+          ? "红线：进出 L0。蓝线：L1 与 L2 之间的切换。灰虚线：L2 内部的特权级变化，不算切换。"
+          : "PVM 下 L2 的用户态和内核之间也要经过 L1，所以每一步都是蓝线。");
+
+        for (var i = 1; i <= step; i++) {
+          var a = path[i - 1][0], b = path[i][0];
+          var cross = LANES[a][1] !== LANES[b][1];
+          var touchL0 = a === 3 || b === 3;
+          if (cross) sw++;
+          if (b === 3 && a !== 3) l0++;
+          el("path", {
+            "class": "seg " + (!cross ? "in" : touchL0 ? "l0" : "sw"),
+            d: "M" + (X0 + (i - 1) * dx) + " " + Y[a] + " L" + (X0 + i * dx) + " " + Y[b]
+          });
+        }
+        for (var j = 0; j <= step; j++) {
+          var ln = path[j][0];
+          el("circle", {
+            cx: X0 + j * dx, cy: Y[ln], r: j === step ? 6 : 4,
+            "class": "dot" + (ln === 3 ? " l0" : "") + (j === step ? " cur" : "")
+          });
+        }
+
+        nSw.textContent = sw;
+        nL0.textContent = l0;
+        log.innerHTML = "";
+        log.appendChild(document.createTextNode(path[step][1]));
+        if (step === path.length - 1) {
+          var s = document.createElement("span");
+          s.className = "sum";
+          s.textContent = " " + paths[mode].sum;
+          log.appendChild(s);
+          go.textContent = "重来";
+        } else {
+          go.textContent = step === 0 ? "开始" : "下一步";
+        }
+      }
+
+      function advance() {
+        step = step === paths[mode].p.length - 1 ? 0 : step + 1;
+        render();
+      }
+      function setMode(m) {
+        mode = m; step = 0;
+        root.setAttribute("data-mode", m);
+        root.querySelectorAll("button[data-m]").forEach(function (b) {
+          b.setAttribute("aria-pressed", b.getAttribute("data-m") === m ? "true" : "false");
+        });
+        render();
+      }
+
+      go.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      root.querySelectorAll("button[data-m]").forEach(function (b) {
+        b.addEventListener("click", function () { setMode(b.getAttribute("data-m")); });
+      });
+      setMode("nst");
+    })();
+  </script>
+</div>

@@ -3,127 +3,177 @@
 # 新文章会追加到末尾：date 为当天，tags 留空，public 为 false。
 # public 为 true 才出现在站点上。省略或 false 都不生成页面。
 # tags 用方括号列出，点击标签会打开同标签的文章列表。
+# slug 是文章网址 /blog/<slug>/，只用小写字母、数字和连字符。省略时用文件名。
 
 "agent沙箱.md":
+  slug: agent-sandbox
   date: 2026-09-28
   tags: ["agent", "沙箱"]
   public: false
 
 "DeepSeek DSec：大规模 Agent 训练的沙箱基础设施.md":
+  slug: deepseek-dsec
   date: 2026-09-28
   tags: ["agent", "沙箱", "infra"]
   public: false
 
 "容器运行时.md":
+  slug: container-runtime
   date: 2026-09-27
   tags: ["容器", "Linux"]
   public: false
 
 "从豆包手机到 muse，深度解析个人助手型agent的发展趋势.md":
+  slug: personal-agent
   date: 2026-09-25
   tags: ["agent"]
   public: false
 
 "Kimi AgentENV：大规模 Agent 训练的执行环境.md":
+  slug: kimi-agentenv
   date: 2026-09-28
   tags: ["agent", "沙箱", "infra"]
   public: false
 
 "对象存储：S3、COS 与 OSS.md":
+  slug: object-storage
   date: 2026-09-28
   tags: ["存储"]
   public: false
 
-"CubeSandbox：面向 AI Agent 的微虚拟机沙箱.md":
-  date: 2026-09-28
+"CubeSandbox 架构篇.md":
+  slug: cubesandbox-architecture
+  date: 2026-10-07
   tags: ["agent", "沙箱", "infra"]
   public: false
 
+"CubeSandbox 存储篇.md":
+  slug: cubesandbox-storage
+  date: 2026-10-07
+  tags: ["沙箱", "infra", "存储"]
+  public: false
+
+"CubeSandbox 网络篇.md":
+  slug: cubesandbox-network
+  date: 2026-10-07
+  tags: ["沙箱", "infra", "网络"]
+  public: false
+
+"CubeSandbox 虚拟化篇.md":
+  slug: cubesandbox-virtualization
+  date: 2026-10-07
+  tags: ["沙箱", "infra", "Linux"]
+  public: false
+
 "Firecracker：microVM、guest agent 与 envd.md":
+  slug: firecracker
   date: 2026-09-28
   tags: ["沙箱", "infra"]
   public: false
 
 "OpenSandbox：给 Agent 用的统一沙箱平台.md":
+  slug: opensandbox
   date: 2026-09-28
   tags: ["agent", "沙箱", "infra"]
   public: false
 
 "systemd：一个开机程序，凭什么让 Linux 吵了十五年.md":
+  slug: systemd
   date: 2026-09-28
   tags: ["Linux", "计算机考古"]
   public: true
 
 "RCU：读者不拿锁，旧对象什么时候能释放.md":
+  slug: rcu
   date: 2026-09-28
   tags: ["Linux"]
   public: false
 
 "代理、TUN 与防火长城：流量为什么越来越像普通 TLS.md":
+  slug: proxy-tun-gfw
   date: 2026-09-28
   tags: ["网络"]
   public: false
 
 "SSH：从一次嗅探口令到端口转发.md":
+  slug: ssh
   date: 2026-09-28
   tags: ["Linux", "网络"]
   public: false
 
 "X11 与 Wayland：Linux 桌面一场漫长的换代.md":
+  slug: x11-wayland
   date: 2026-09-28
   tags: ["Linux", "计算机考古"]
   public: false
 
 "Windows NT：微软为什么要重新发明 Windows.md":
+  slug: windows-nt
   date: 2026-09-28
   tags: ["计算机考古"]
   public: false
 
 "从 SSL 到 TLS 1.3：互联网如何偿还二十年的密码学技术债.md":
+  slug: tls
   date: 2026-09-28
   tags: ["网络", "计算机考古"]
   public: false
 
 "MP3：一个输掉了标准之争的格式，怎样改写了整个音乐产业.md":
+  slug: mp3
   date: 2026-09-28
   tags: ["计算机考古"]
   public: false
 
 "Docker 与容器：从 chroot 到 Kubernetes，一只鲸鱼怎样改写了软件交付.md":
+  slug: docker
   date: 2026-09-28
   tags: ["Linux", "计算机考古", "容器"]
   public: false
 
-"以太网 MTU：1500 字节怎样成了互联网改不动的轨距.md":
-  date: 2026-09-28
-  tags: []
-  public: false
 "浏览器为什么都假装自己是 Mozilla.md":
+  slug: user-agent
   date: 2026-09-28
   tags: ["计算机考古"]
   public: false
 
-"以太网 MTU：1500 字节怎样成了互联网改不动的轨距.md":
+"MTU：1500 字节怎样成了互联网改不动的轨距.md":
+  slug: mtu
   date: 2026-09-28
   tags: ["网络", "计算机考古"]
   public: false
 
 "DNS：水面之下是冰山.md":
+  slug: dns
   date: 2026-09-28
   tags: ["网络", "计算机考古"]
   public: false
 
 "Welcome to nginx 背后的二十年.md":
+  slug: nginx
   date: 2026-09-28
   tags: ["网络", "计算机考古"]
   public: false
 
 "PDF：一张逃出打印机的纸，怎样成了全世界的文件格式.md":
+  slug: pdf
   date: 2026-09-29
   tags: ["计算机考古"]
   public: false
 
 "NTP：是谁在替整个互联网校准时间？.md":
+  slug: ntp
   date: 2026-09-29
+  tags: ["网络", "计算机考古"]
+  public: false
+
+"PVM：没有 VT-x 的云主机上怎样跑 KVM.md":
+  slug: pvm
+  date: 2026-10-07
+  tags: ["沙箱", "infra", "Linux"]
+  public: false
+"ICMP：一个被全网屏蔽的信使，是怎样活下来的.md":
+  slug: icmp
+  date: 2026-10-08
   tags: ["网络", "计算机考古"]
   public: false

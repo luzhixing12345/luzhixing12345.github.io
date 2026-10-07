@@ -1,0 +1,148 @@
+<div class="cube-reflink-demo">
+  <style>
+    .cube-reflink-demo {
+      --cr-fg: var(--fg, #09090b);
+      --cr-muted: var(--muted, #71717a);
+      --cr-line: var(--line, #e4e4e7);
+      --cr-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--cr-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--cr-fg);
+    }
+    .cube-reflink-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--cr-soft); }
+    .cube-reflink-demo text { font-size: 12px; fill: var(--cr-fg); }
+    .cube-reflink-demo .s { font-size: 11px; fill: var(--cr-muted); }
+    .cube-reflink-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .cube-reflink-demo .cell { fill: #fff; stroke: var(--cr-fg); stroke-width: 1.2; }
+    .cube-reflink-demo .cell.shared { fill: #eff6ff; stroke: #2563eb; }
+    .cube-reflink-demo .cell.own { fill: #fffbeb; stroke: #d97706; }
+    .cube-reflink-demo .blk { fill: #fff; stroke: var(--cr-fg); stroke-width: 1.2; transition: fill .3s, opacity .3s; }
+    .cube-reflink-demo .blk.free { fill: none; stroke: #a1a1aa; stroke-dasharray: 4 3; }
+    .cube-reflink-demo .blk.shared { fill: #dbeafe; }
+    .cube-reflink-demo .blk.new { fill: #fde68a; }
+    .cube-reflink-demo .map { stroke: #a1a1aa; stroke-width: 1.2; fill: none; }
+    .cube-reflink-demo .map.b { stroke: #2563eb; }
+    .cube-reflink-demo .map.w { stroke: #d97706; stroke-width: 1.8; }
+    .cube-reflink-demo .file { transition: opacity .35s; }
+    .cube-reflink-demo .file[data-on="0"] { opacity: 0; }
+    .cube-reflink-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--cr-line);
+    }
+    .cube-reflink-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--cr-fg); border-radius: 6px; background: var(--cr-fg); color: #fff;
+    }
+    .cube-reflink-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 3.2em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .cube-reflink-demo .log .k { color: #a1a1aa; }
+    .cube-reflink-demo .log .w { color: #fbbf24; }
+    .cube-reflink-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .cube-reflink-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 300" role="img" aria-label="XFS reflink 演示：两个文件的 extent 映射共享同一批物理块，写入时只分裂被写的那一块">
+    <g class="dyn"></g>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="s"></span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var dyn = root.querySelector(".dyn");
+      var btn = root.querySelector("button");
+      var log = root.querySelector(".log");
+      var NS = "http://www.w3.org/2000/svg";
+      var X0 = 160, DX = 76, W = 60;
+
+      var steps = [
+        { btn: "FICLONE 克隆", a: [0, 1, 2, 3, 4, 5], b: null,
+          log: [["k", "模板可写层 tpl-x-rootfs：6 个 extent，各自独占一个物理块，引用计数都是 1"]] },
+        { btn: "沙箱写偏移 2", a: [0, 1, 2, 3, 4, 5], b: [0, 1, 2, 3, 4, 5],
+          log: [["", "ioctl(sb-rootfs, FICLONE, tpl-x-rootfs) = 0"],
+                ["k", "只复制 extent 映射并给每个块的引用计数加一，没有搬一个数据块"]] },
+        { btn: "删除克隆", a: [0, 1, 2, 3, 4, 5], b: [0, 1, 6, 3, 4, 5], w: 2,
+          log: [["w", "写偏移 2：块 3 是共享的，XFS 新分配块 7，写入落到块 7"],
+                ["k", "sb-rootfs 的偏移 2 改指块 7；块 3 引用计数降回 1，模板看到的内容不变"]] },
+        { btn: "重来", a: [0, 1, 2, 3, 4, 5], b: null,
+          log: [["ok", "unlink(sb-rootfs)：块 7 释放，块 1–6 引用计数减一"],
+                ["k", "删除就是删一个普通文件，模板和别的克隆都不用改"]] }
+      ];
+      var step = 0;
+
+      function el(tag, attrs, text) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        if (text != null) n.textContent = text;
+        dyn.appendChild(n);
+        return n;
+      }
+      function cx(i) { return X0 + i * DX + W / 2; }
+
+      function fileRow(y, name, sub, map, other, writeAt) {
+        el("text", { x: 24, y: y + 15, "class": "m" }, name);
+        el("text", { x: 24, y: y + 31, "class": "s" }, sub);
+        map.forEach(function (blk, i) {
+          var shared = other && other.indexOf(blk) >= 0;
+          var cls = "cell" + (i === writeAt ? " own" : shared ? " shared" : "");
+          el("rect", { x: X0 + i * DX, y: y, width: W, height: 34, rx: 4, "class": cls });
+          el("text", { x: cx(i), y: y + 21, "text-anchor": "middle", "class": "m" }, "偏移 " + i);
+        });
+      }
+
+      function render() {
+        var s = steps[step];
+        while (dyn.firstChild) dyn.removeChild(dyn.firstChild);
+        var ref = [0, 0, 0, 0, 0, 0, 0, 0];
+        s.a.forEach(function (b) { ref[b]++; });
+        if (s.b) s.b.forEach(function (b) { ref[b]++; });
+
+        s.a.forEach(function (b, i) {
+          el("path", { "class": "map", d: "M" + cx(i) + " 58 L" + cx(b) + " 128" });
+        });
+        if (s.b) s.b.forEach(function (b, i) {
+          el("path", { "class": "map b" + (i === s.w ? " w" : ""), d: "M" + cx(i) + " 232 L" + cx(b) + " 192" });
+        });
+
+        fileRow(24, "tpl-x-rootfs", "模板（只被克隆）", s.a, s.b, -1);
+
+        el("text", { x: 24, y: 145, "class": "s" }, "XFS 物理块");
+        el("text", { x: 24, y: 161, "class": "s" }, "（下方是引用计数）");
+        for (var i = 0; i < 8; i++) {
+          var cls = "blk" + (ref[i] === 0 ? " free" : ref[i] > 1 ? " shared" : (s.w != null && i === 6) ? " new" : "");
+          el("rect", { x: X0 + i * DX, y: 128, width: W, height: 40, rx: 4, "class": cls });
+          el("text", { x: cx(i), y: 152, "text-anchor": "middle" }, "块 " + (i + 1));
+          el("text", { x: cx(i), y: 184, "text-anchor": "middle", "class": "s m" }, ref[i] ? "ref=" + ref[i] : "空闲");
+        }
+
+        if (s.b) fileRow(232, "sb-rootfs", "沙箱私有可写层", s.b, s.a, s.w);
+        else el("text", { x: 400, y: 256, "text-anchor": "middle", "class": "s" }, "还没有克隆");
+
+        btn.textContent = s.btn;
+        log.innerHTML = "";
+        s.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      root.querySelector(".bar .s").textContent = "蓝色是共享的块，橙色是写入后分裂出来的私有块";
+      render();
+    })();
+  </script>
+</div>
