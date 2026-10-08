@@ -1,0 +1,172 @@
+<div class="jfs-read-demo">
+  <style>
+    .jfs-read-demo {
+      --jr-fg: var(--fg, #09090b);
+      --jr-muted: var(--muted, #71717a);
+      --jr-line: var(--line, #e4e4e7);
+      --jr-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--jr-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--jr-fg);
+    }
+    .jfs-read-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--jr-soft); }
+    .jfs-read-demo text { font-size: 12px; fill: var(--jr-fg); }
+    .jfs-read-demo .s { font-size: 11px; fill: var(--jr-muted); }
+    .jfs-read-demo .b { font-weight: 600; }
+    .jfs-read-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .jfs-read-demo .box { fill: #fff; stroke: var(--jr-fg); stroke-width: 1.2; }
+    .jfs-read-demo .tier { fill: #fff; stroke: var(--jr-fg); stroke-width: 1.2; transition: fill .3s, stroke .3s, opacity .3s; }
+    .jfs-read-demo .tier.miss { fill: #fafafa; stroke: #a1a1aa; }
+    .jfs-read-demo .tier.hit { fill: #dcfce7; stroke: #16a34a; stroke-width: 2; }
+    .jfs-read-demo .tier.fill { fill: #eff6ff; stroke: #2563eb; }
+    .jfs-read-demo .tier.skip { fill: none; stroke: #d4d4d8; stroke-dasharray: 4 3; }
+    .jfs-read-demo .st { font-size: 11px; font-weight: 600; }
+    .jfs-read-demo .st.hit { fill: #16a34a; }
+    .jfs-read-demo .st.miss { fill: #a1a1aa; }
+    .jfs-read-demo .st.fill { fill: #2563eb; }
+    .jfs-read-demo .st.skip { fill: #a1a1aa; font-weight: 400; }
+    .jfs-read-demo .meta { fill: #fffbeb; stroke: #d97706; stroke-width: 1.3; }
+    .jfs-read-demo .path { fill: none; stroke: #16a34a; stroke-width: 2.4; transition: opacity .3s; }
+    .jfs-read-demo .back { fill: none; stroke: #2563eb; stroke-width: 1.6; stroke-dasharray: 5 4; transition: opacity .3s; }
+    .jfs-read-demo .mar { fill: none; stroke: #d97706; stroke-width: 1.5; transition: opacity .3s; }
+    .jfs-read-demo .off { opacity: 0; }
+    .jfs-read-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--jr-line);
+    }
+    .jfs-read-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--jr-fg); border-radius: 6px; background: var(--jr-fg); color: #fff;
+    }
+    .jfs-read-demo .bar .s { font-size: 12px; color: var(--jr-muted); }
+    .jfs-read-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 4.8em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .jfs-read-demo .log .k { color: #a1a1aa; }
+    .jfs-read-demo .log .w { color: #fbbf24; }
+    .jfs-read-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .jfs-read-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 290" role="img" aria-label="JuiceFS 读取的多级缓存演示：内核页缓存、客户端读写缓冲区、本地缓存盘、企业版分布式缓存组、对象存储，逐级查找，未命中时从下层取回并回填上层">
+    <defs>
+      <marker id="jr-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#16a34a"/></marker>
+      <marker id="jr-ar-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2563eb"/></marker>
+      <marker id="jr-ar-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+    </defs>
+
+    <rect class="box" x="230" y="10" width="320" height="32" rx="6"/>
+    <text x="390" y="31" text-anchor="middle" data-k="who"></text>
+
+    <rect class="meta" x="20" y="10" width="170" height="64" rx="8"/>
+    <text class="b" x="105" y="32" text-anchor="middle">元数据引擎</text>
+    <text class="s" x="105" y="50" text-anchor="middle">open() 取属性和 slice 列表</text>
+    <text class="s" x="105" y="65" text-anchor="middle">据此判断页缓存是否还有效</text>
+    <path class="mar" d="M190 26 H229" marker-end="url(#jr-ar-m)" marker-start="url(#jr-ar-m)" data-k="mar"/>
+
+    <g data-k="tiers"></g>
+    <path class="path" data-k="path" marker-end="url(#jr-ar)"/>
+    <path class="back" data-k="back" marker-end="url(#jr-ar-b)"/>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="s">绿色是命中的那一层，蓝色是读完后被回填的层</span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var log = root.querySelector(".log");
+      var NS = "http://www.w3.org/2000/svg";
+      function q(k) { return root.querySelector('[data-k="' + k + '"]'); }
+
+      var TIERS = [
+        ["内核页缓存", "page cache", "微秒级"],
+        ["客户端读写缓冲区", "预读窗口 · 进程内存", "内存拷贝"],
+        ["本地缓存盘", "--cache-dir，按块缓存", "NVMe 约百微秒"],
+        ["分布式缓存组", "企业版 · 一致性哈希", "内网 · 亚毫秒到毫秒"],
+        ["对象存储", "GET 整块或 Range", "首字节常见数十毫秒"]
+      ];
+      var Y0 = 60, DY = 45, H = 34, X = 230, W = 320;
+      var g = q("tiers"), boxes = [], stats = [];
+      TIERS.forEach(function (t, i) {
+        var y = Y0 + i * DY;
+        function el(tag, a, txt) {
+          var n = document.createElementNS(NS, tag);
+          for (var k in a) n.setAttribute(k, a[k]);
+          if (txt != null) n.textContent = txt;
+          g.appendChild(n);
+          return n;
+        }
+        boxes.push(el("rect", { x: X, y: y, width: W, height: H, rx: 6, "class": "tier" }));
+        el("text", { x: X + 14, y: y + 15, "class": "b" }, t[0]);
+        el("text", { x: X + 14, y: y + 29, "class": "s" }, t[1]);
+        stats.push(el("text", { x: X + W - 12, y: y + 22, "text-anchor": "end", "class": "st" }, ""));
+        el("text", { x: X + W + 18, y: y + 22, "class": "s" }, t[2]);
+      });
+
+      var LABEL = { hit: "命中", miss: "未命中", fill: "已回填", skip: "社区版没有这一层", "": "" };
+      var steps = [
+        { btn: "首次读取", who: "机器 A：还没读过 train/00001.tar", t: ["", "", "", "", ""], meta: false,
+          log: [["k", "训练进程要读 /jfs/train/00001.tar 开头的 1 MiB，这个文件刚由别的机器写好。"]] },
+        { btn: "同一个进程再读一遍", who: "机器 A：read(fd, buf, 1MiB)", t: ["fill", "fill", "fill", "skip", "hit"], meta: true, hit: 4, back: 2,
+          log: [["", "open()：向元数据引擎取 inode 属性和 chunk 0 的 slice 列表，算出要读 …/1001_0_4194304"],
+                ["", "GET …/1001_0_4194304 Range: bytes=0-1048575；同时后台把整个 4 MiB 块拉进本地缓存盘"],
+                ["w", "这一次付出的是对象存储的首字节延迟，常见几十毫秒"]] },
+        { btn: "页缓存被回收后重新打开", who: "机器 A：再读同一段", t: ["hit", "", "", "", ""], meta: false, hit: 0,
+          log: [["ok", "内核页缓存命中，请求根本没到 JuiceFS 进程，微秒级返回"],
+                ["k", "同一台机器反复读同一个文件，吞吐可以到每秒几 GiB"]] },
+        { btn: "换到机器 B 读", who: "机器 A：页缓存已被回收，重新 open", t: ["miss", "miss", "hit", "", ""], meta: true, hit: 2, back: 0,
+          log: [["", "open() 仍然要问元数据引擎：文件没改过，slice 列表和上次一样"],
+                ["ok", "缓冲区早已释放，本地缓存盘里有 1001_0_4194304，从 NVMe 读出，约百微秒"],
+                ["k", "块名里带着全局唯一的 slice ID，内容永不改变，所以缓存块不需要失效通知"]] },
+        { btn: "重来", who: "机器 B：和 A 在同一个缓存组", t: ["fill", "fill", "miss", "hit", ""], meta: true, hit: 3, back: 2,
+          log: [["", "B 本地什么都没有。社区版只能再去对象存储取一次"],
+                ["ok", "企业版里 A、B 同属一个缓存组：按一致性哈希找到负责这个块的节点，走内网拿回来"],
+                ["k", "缓存组把多台机器的盘拼成一个大缓存池，训练集只需从对象存储拉一次"]] }
+      ];
+      var step = 0;
+
+      function cy(i) { return Y0 + i * DY + H / 2; }
+
+      function render() {
+        var s = steps[step];
+        q("who").textContent = s.who;
+        s.t.forEach(function (v, i) {
+          boxes[i].setAttribute("class", "tier" + (v ? " " + v : ""));
+          stats[i].setAttribute("class", "st" + (v ? " " + v : ""));
+          stats[i].textContent = LABEL[v];
+        });
+        q("mar").setAttribute("class", "mar" + (s.meta ? "" : " off"));
+        if (s.hit != null) {
+          q("path").setAttribute("d", "M230 36 H216 V" + cy(s.hit) + " H229");
+          q("path").setAttribute("class", "path");
+        } else q("path").setAttribute("class", "path off");
+        if (s.back != null) {
+          q("back").setAttribute("d", "M" + (X + W + 6) + " " + cy(s.hit) + " h6 V" + (Y0 + 4) + " h-5");
+          q("back").setAttribute("class", "back");
+        } else q("back").setAttribute("class", "back off");
+        btn.textContent = s.btn;
+        log.innerHTML = "";
+        s.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      render();
+    })();
+  </script>
+</div>

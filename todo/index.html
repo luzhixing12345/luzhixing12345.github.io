@@ -51,7 +51,7 @@
   button, input, textarea { font: inherit; color: inherit; }
   svg { width: 16px; height: 16px; flex-shrink: 0; }
 
-  .container { max-width: 640px; margin: 0 auto; padding: 56px 20px 80px; }
+  .container { max-width: 880px; margin: 0 auto; padding: 56px 20px 80px; }
   header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
   h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; }
   .subtitle { color: var(--muted-foreground); margin-top: 6px; }
@@ -81,8 +81,6 @@
   .btn-icon { width: 32px; height: 32px; padding: 0; }
   .btn-ghost.danger:hover { color: var(--destructive); }
   .btn-ghost.star[aria-pressed="true"] svg { fill: currentColor; }
-  .item.starred .actions .star { opacity: 1; }
-
   .input {
     width: 100%; height: 36px; padding: 0 12px;
     border: 1px solid var(--input); border-radius: var(--radius);
@@ -127,9 +125,13 @@
   .note a:hover { text-decoration: underline; text-underline-offset: 2px; }
   .meta { color: var(--muted-foreground); font-size: 12px; margin-top: 4px; }
   .item.done .title { text-decoration: line-through; color: var(--muted-foreground); }
+  .item.paused .checkbox, .item.paused .content { opacity: .45; }
+  .item.paused .title { color: var(--muted-foreground); }
   .actions { display: flex; gap: 2px; }
-  .actions .btn { opacity: .35; transition: opacity .15s; }
-  .item:hover .actions .btn { opacity: 1; }
+  .actions .btn { opacity: 0; transition: opacity .15s; }
+  .item:hover .actions .btn, .item:focus-within .actions .btn,
+  .item.starred .actions .star, .item.paused .actions .pause { opacity: 1; }
+  @media (hover: none) { .actions .btn { opacity: 1; } }
   .edit-form { display: grid; gap: 8px; }
   .edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
@@ -223,6 +225,8 @@ const $ = (s) => document.querySelector(s);
 const ICON = {
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
   star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.52 2.3a.53.53 0 0 1 .96 0l2.31 4.68a2.12 2.12 0 0 0 1.6 1.16l5.16.76a.53.53 0 0 1 .3.9l-3.74 3.64a2.12 2.12 0 0 0-.61 1.88l.88 5.14a.53.53 0 0 1-.78.56l-4.62-2.43a2.12 2.12 0 0 0-1.97 0L6.4 21.02a.53.53 0 0 1-.77-.56l.88-5.14a2.12 2.12 0 0 0-.61-1.88L2.16 9.8a.53.53 0 0 1 .3-.9l5.16-.76a2.12 2.12 0 0 0 1.6-1.16z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
   inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>',
 };
@@ -269,8 +273,9 @@ function fmtTime(iso) {
 
 function render() {
   const active = todos.filter((t) => !t.done).length;
+  const paused = todos.filter((t) => !t.done && t.paused).length;
   $("#summary").textContent = todos.length
-    ? `共 ${todos.length} 项，${active} 项未完成`
+    ? `共 ${todos.length} 项，${active} 项未完成${paused ? `（${paused} 项暂缓）` : ""}`
     : "还没有待办事项";
 
   document.querySelectorAll(".tab").forEach((tab) => {
@@ -282,7 +287,7 @@ function render() {
 
   const shown = todos
     .filter((t) => (filter === "done") === t.done)
-    .sort((a, b) => !!b.starred - !!a.starred);
+    .sort((a, b) => !!a.paused - !!b.paused || !!b.starred - !!a.starred);
   const list = $("#list");
   if (!shown.length) {
     list.innerHTML = `<li class="empty">${ICON.inbox}<div>${filter === "done" ? "暂无已完成事项" : todos.length ? "全部完成了" : "添加第一项待办吧"}</div></li>`;
@@ -301,14 +306,16 @@ function render() {
         </form>
       </li>`;
     }
-    return `<li class="item${t.done ? " done" : ""}${t.starred ? " starred" : ""}" data-id="${t.id}">
+    const paused = t.paused && !t.done;
+    return `<li class="item${t.done ? " done" : ""}${t.starred ? " starred" : ""}${paused ? " paused" : ""}" data-id="${t.id}">
       <input type="checkbox" class="checkbox" data-action="toggle" ${t.done ? "checked" : ""} aria-label="完成">
       <div class="content">
         <div class="title">${esc(t.title)}</div>
         ${t.note ? `<div class="note">${linkify(t.note)}</div>` : ""}
-        <div class="meta">${t.done ? "完成于" : "创建于"} ${fmtTime(t.done ? t.updated_at : t.created_at)}</div>
+        <div class="meta">${t.done ? "完成于" : "创建于"} ${fmtTime(t.done ? t.updated_at : t.created_at)}${paused ? " · 已暂缓，不会邮件提醒" : ""}</div>
       </div>
       <div class="actions">
+        ${t.done ? "" : `<button class="btn btn-ghost btn-icon pause" data-action="pause" aria-pressed="${paused}" title="${paused ? "恢复" : "暂缓"}">${paused ? ICON.play : ICON.pause}</button>`}
         <button class="btn btn-ghost btn-icon star" data-action="star" aria-pressed="${!!t.starred}" title="${t.starred ? "取消星标" : "标星"}">${ICON.star}</button>
         <button class="btn btn-ghost btn-icon" data-action="edit" title="编辑">${ICON.edit}</button>
         <button class="btn btn-ghost btn-icon danger" data-action="delete" title="删除">${ICON.trash}</button>
@@ -413,6 +420,13 @@ $("#list").addEventListener("click", async (e) => {
   } else if (action === "star") {
     try {
       Object.assign(t, await api("PATCH", `/api/todos/${id}`, { starred: !t.starred }));
+      render();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  } else if (action === "pause") {
+    try {
+      Object.assign(t, await api("PATCH", `/api/todos/${id}`, { paused: !t.paused }));
       render();
     } catch (err) {
       toast(err.message, true);

@@ -1,0 +1,107 @@
+<div class="xnode-jfs-arch-demo">
+  <style>
+    .xnode-jfs-arch-demo {
+      --xa-fg: var(--fg, #09090b);
+      --xa-muted: var(--muted, #71717a);
+      --xa-line: var(--line, #e4e4e7);
+      --xa-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--xa-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--xa-fg);
+    }
+    .xnode-jfs-arch-demo svg { display: block; width: 100%; height: auto; background: var(--xa-soft); }
+    .xnode-jfs-arch-demo text { font-size: 12px; fill: var(--xa-fg); }
+    .xnode-jfs-arch-demo .s { font-size: 11px; fill: var(--xa-muted); }
+    .xnode-jfs-arch-demo .b { font-weight: 600; }
+    .xnode-jfs-arch-demo .m { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; }
+    .xnode-jfs-arch-demo .zone { fill: #fff; stroke: var(--xa-muted); stroke-dasharray: 5 4; }
+    .xnode-jfs-arch-demo .box { fill: #fff; stroke: var(--xa-fg); stroke-width: 1.2; }
+    .xnode-jfs-arch-demo .new { fill: #fffbeb; stroke: #d97706; stroke-width: 1.4; }
+    .xnode-jfs-arch-demo .xfs { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.3; }
+    .xnode-jfs-arch-demo .obj { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.3; }
+    .xnode-jfs-arch-demo .ar { fill: none; stroke: var(--xa-fg); stroke-width: 1.3; }
+    .xnode-jfs-arch-demo .ar.o { stroke: #2563eb; stroke-dasharray: 6 4; }
+    .xnode-jfs-arch-demo .ar.n { stroke: #d97706; }
+    .xnode-jfs-arch-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--xa-muted); border-top: 1px solid var(--xa-line);
+    }
+  </style>
+
+  <svg viewBox="0 0 800 450" role="img" aria-label="CubeSandbox 接入 JuiceFS 的架构：每个节点本地 XFS 仍是热路径；暂停后 Cubelet 的 Publisher 把包发布到所有节点共享的 JuiceFS 目录；另一台节点的 Importer 把小的 rootfs 拷回本地 XFS，内存文件直接从 JuiceFS 以私有映射打开；JuiceFS 的元数据放在元数据引擎，数据块放在对象存储">
+    <defs>
+      <marker id="xa-ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#09090b"/></marker>
+      <marker id="xa-ar-o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2563eb"/></marker>
+      <marker id="xa-ar-n" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+    </defs>
+
+    <rect class="new" x="250" y="10" width="300" height="62" rx="8"/>
+    <text class="b" x="400" y="30" text-anchor="middle">CubeMaster · restoreplace</text>
+    <text class="s" x="400" y="48" text-anchor="middle">CanCrossNode 增加 xfs + jfs：remote=ready 即可跨机</text>
+    <text class="s" x="400" y="64" text-anchor="middle">DB 记包在 JuiceFS 里的路径（沿用 remote_uuids 字段）</text>
+
+    <rect class="zone" x="16" y="88" width="372" height="248" rx="8"/>
+    <text class="s" x="28" y="106">节点 A（暂停 / 制作快照）</text>
+    <rect class="new" x="30" y="114" width="164" height="52" rx="6"/>
+    <text class="b" x="42" y="135">Cubelet</text>
+    <text class="s" x="42" y="153">+ Publisher（新增）</text>
+    <rect class="box" x="208" y="114" width="166" height="52" rx="6"/>
+    <text class="b" x="220" y="135">CubeHypervisor</text>
+    <text class="s" x="220" y="153">盘和内存都是本地文件</text>
+    <rect class="xfs" x="30" y="180" width="344" height="70" rx="6"/>
+    <text class="b" x="42" y="200">本地 XFS · CubeCoW reflink（不变）</text>
+    <text class="m" x="42" y="220">tpl-x-rootfs  tpl-x-memory  sb-1-rootfs-gen0</text>
+    <text class="m" x="42" y="238">snap-p1-rootfs  snap-p1-memory  metadata/</text>
+    <rect class="new" x="30" y="266" width="344" height="56" rx="6"/>
+    <text class="b m" x="42" y="287" style="font-size: 12px">juicefs mount /data/cubelet/jfs</text>
+    <text class="s" x="42" y="307">每节点一个进程，--cache-dir 放本地 NVMe</text>
+
+    <rect class="zone" x="412" y="88" width="372" height="248" rx="8"/>
+    <text class="s" x="424" y="106">节点 B（跨机恢复 / 从快照创建）</text>
+    <rect class="new" x="426" y="114" width="164" height="52" rx="6"/>
+    <text class="b" x="438" y="135">Cubelet</text>
+    <text class="s" x="438" y="153">+ Importer（新增）</text>
+    <rect class="box" x="604" y="114" width="166" height="52" rx="6"/>
+    <text class="b" x="616" y="135">CubeHypervisor</text>
+    <text class="s" x="616" y="153">内存 URL 指向 JuiceFS</text>
+    <rect class="xfs" x="426" y="180" width="344" height="70" rx="6"/>
+    <text class="b" x="438" y="200">本地 XFS · CubeCoW reflink（不变）</text>
+    <text class="m" x="438" y="220">sb-1-rootfs-gen1  ← 从包里拷来</text>
+    <text class="s" x="438" y="238">之后的读写、下一次暂停都在本地</text>
+    <rect class="new" x="426" y="266" width="344" height="56" rx="6"/>
+    <text class="b m" x="438" y="287" style="font-size: 12px">juicefs mount /data/cubelet/jfs</text>
+    <text class="s" x="438" y="307">同一个文件系统，同一套路径</text>
+
+    <rect class="zone" x="16" y="352" width="768" height="88" rx="8"/>
+    <text class="s" x="28" y="370">JuiceFS 文件系统（所有节点看到同一个命名空间）</text>
+    <rect class="box" x="30" y="378" width="200" height="52" rx="6"/>
+    <text class="b" x="42" y="399">元数据引擎</text>
+    <text class="s" x="42" y="417">Redis / TiKV / PostgreSQL，需高可用</text>
+    <text class="m" x="250" y="394">/cube/tpl/&lt;tpl&gt;/{rootfs,memory,base.ext4}</text>
+    <text class="m" x="250" y="412">/cube/pkg/&lt;snap&gt;/{rootfs,memory,meta/}</text>
+    <text class="m" x="250" y="430">/cube/pkg/&lt;snap&gt;/manifest.json  ← 最后写</text>
+    <rect class="obj" x="570" y="378" width="200" height="52" rx="6"/>
+    <text class="b" x="582" y="399">对象存储</text>
+    <text class="s" x="582" y="417">4 MiB 不可变块，按需取</text>
+
+    <path class="ar n" d="M112 112 C 112 64, 180 44, 246 44" marker-end="url(#xa-ar-n)"/>
+    <text class="s" x="30" y="80">remote=ready</text>
+    <path class="ar n" d="M552 44 C 600 44, 508 70, 508 110" marker-end="url(#xa-ar-n)"/>
+    <text class="s" x="566" y="80">Resume 放到 B</text>
+
+    <path class="ar" d="M112 166 V178" marker-end="url(#xa-ar)"/>
+    <path class="ar n" d="M200 250 V264" marker-end="url(#xa-ar-n)"/>
+    <text class="s" x="208" y="261">clone 父层 + 写脏页</text>
+    <path class="ar o" d="M200 322 V350" marker-end="url(#xa-ar-o)"/>
+
+    <path class="ar o" d="M560 350 V324" marker-end="url(#xa-ar-o)"/>
+    <path class="ar n" d="M500 264 V252" marker-end="url(#xa-ar-n)"/>
+    <text class="s" x="508" y="262">拷 rootfs（几 MiB）</text>
+    <path class="ar n" d="M776 294 C 796 294, 796 140, 772 140" marker-end="url(#xa-ar-n)"/>
+    <text class="s" x="630" y="177">MAP_PRIVATE 映射 memory</text>
+  </svg>
+  <p class="cap">橙色是要新增或改动的部分，绿色是现有的 xfs 热路径，不动。同机的创建、暂停、恢复仍是 reflink；JuiceFS 只承担“让别的节点拿得到”这一件事。模板发布一次，暂停包只上传相对父层改过的块。</p>
+</div>

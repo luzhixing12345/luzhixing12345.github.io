@@ -1,0 +1,166 @@
+<div class="os-cas-demo">
+  <style>
+    .os-cas-demo {
+      --ocs-fg: var(--fg, #09090b);
+      --ocs-muted: var(--muted, #71717a);
+      --ocs-line: var(--line, #e4e4e7);
+      --ocs-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--ocs-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--ocs-fg);
+    }
+    .os-cas-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--ocs-soft); }
+    .os-cas-demo text { font-size: 12px; fill: var(--ocs-fg); }
+    .os-cas-demo .s { font-size: 11px; fill: var(--ocs-muted); }
+    .os-cas-demo .b { font-weight: 600; }
+    .os-cas-demo .m { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; }
+    .os-cas-demo .head { fill: #fff; stroke: var(--ocs-fg); stroke-width: 1.2; }
+    .os-cas-demo .life { stroke: #a1a1aa; stroke-dasharray: 4 4; }
+    .os-cas-demo .msg { stroke: var(--ocs-fg); stroke-width: 1.3; fill: none; }
+    .os-cas-demo .msg.ok { stroke: #16a34a; }
+    .os-cas-demo .msg.err { stroke: #dc2626; }
+    .os-cas-demo .lab.ok { fill: #15803d; }
+    .os-cas-demo .lab.err { fill: #dc2626; }
+    .os-cas-demo .st { fill: #fff; stroke: #2563eb; }
+    .os-cas-demo .st.err { fill: #fee2e2; stroke: #dc2626; }
+    .os-cas-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--ocs-line); font-size: 12px; color: var(--ocs-muted);
+    }
+    .os-cas-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--ocs-fg); border-radius: 6px; background: var(--ocs-fg); color: #fff;
+    }
+    .os-cas-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 3.2em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .os-cas-demo .log .k { color: #a1a1aa; }
+    .os-cas-demo .log .w { color: #f87171; }
+    .os-cas-demo .log .ok { color: #4ade80; }
+  </style>
+
+  <svg viewBox="0 0 800 380" role="img" aria-label="条件写演示：两个写入者同时更新 manifest.json，带 If-Match 时后到的一方收到 412 并重试，不带条件时先到的修改会被悄悄覆盖">
+    <defs>
+      <marker id="ocs-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+      <marker id="ocs-ar-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#16a34a"/>
+      </marker>
+      <marker id="ocs-ar-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#dc2626"/>
+      </marker>
+    </defs>
+    <path class="life" d="M130 52 V372 M400 52 V372 M670 52 V372"/>
+    <rect class="head" x="50" y="12" width="160" height="40" rx="6"/>
+    <text class="b" x="130" y="30" text-anchor="middle">写入者 A</text>
+    <text class="s" x="130" y="45" text-anchor="middle">要加入快照 s2</text>
+    <rect class="head" x="300" y="12" width="200" height="40" rx="6"/>
+    <text class="b" x="400" y="30" text-anchor="middle">对象存储</text>
+    <text class="s m" x="400" y="45" text-anchor="middle">tbl/metadata/manifest.json</text>
+    <rect class="head" x="590" y="12" width="160" height="40" rx="6"/>
+    <text class="b" x="670" y="30" text-anchor="middle">写入者 B</text>
+    <text class="s" x="670" y="45" text-anchor="middle">要加入快照 s3</text>
+    <g class="dyn"></g>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="tip"></span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var dyn = root.querySelector(".dyn");
+      var btn = root.querySelector("button");
+      var tip = root.querySelector(".tip");
+      var log = root.querySelector(".log");
+      var NS = "http://www.w3.org/2000/svg";
+      var A = 130, S = 400, B = 670;
+
+      function m(from, to, y, text, cls) { return { t: "m", from: from, to: to, y: y, text: text, cls: cls || "" }; }
+      function st(y, text, cls) { return { t: "s", y: y, text: text, cls: cls || "" }; }
+
+      var init = [st(62, "ETag \"e1\" · 快照 [s1]")];
+      var read = [
+        m(A, S, 104, "GET"), m(S, A, 124, "200 ETag \"e1\" [s1]"),
+        m(B, S, 104, "GET"), m(S, B, 124, "200 ETag \"e1\" [s1]")
+      ];
+      var aPut = [
+        m(A, S, 158, "PUT [s1,s2]  If-Match: \"e1\""), m(S, A, 178, "200 ETag \"e2\"", "ok"),
+        st(188, "ETag \"e2\" · [s1, s2]")
+      ];
+      var bFail = [
+        m(B, S, 228, "PUT [s1,s3]  If-Match: \"e1\""), m(S, B, 248, "412 Precondition Failed", "err")
+      ];
+      var bRetry = [
+        m(B, S, 280, "GET"), m(S, B, 298, "200 ETag \"e2\" [s1,s2]"),
+        m(B, S, 322, "PUT [s1,s2,s3]  If-Match: \"e2\""), m(S, B, 342, "200 ETag \"e3\"", "ok"),
+        st(352, "ETag \"e3\" · [s1, s2, s3]")
+      ];
+      var bBlind = [
+        m(B, S, 228, "PUT [s1,s3]（不带条件）"), m(S, B, 248, "200 ETag \"e3\"", "err"),
+        st(258, "ETag \"e3\" · [s1, s3]   s2 丢了", "err")
+      ];
+
+      var steps = [
+        { btn: "A 和 B 同时读取", tip: "表的当前版本记在一个对象里", items: init,
+          log: [["k", "Iceberg 一类的表格式，用一个元数据对象记录“这张表由哪些快照组成”"]] },
+        { btn: "A 先提交", tip: "两个人都基于 e1 做修改", items: init.concat(read),
+          log: [["", "A 和 B 都读到 ETag \"e1\"，各自在本地算出新的快照列表"]] },
+        { btn: "B 提交", tip: "比较并交换：ETag 没变才写", items: init.concat(read, aPut),
+          log: [["ok", "A：当前 ETag 还是 \"e1\"，条件成立，写入成功，ETag 变成 \"e2\""]] },
+        { btn: "B 重读后重试", tip: "后到的一方被拒绝", items: init.concat(read, aPut, bFail),
+          log: [["w", "B：当前 ETag 已经是 \"e2\"，不等于 \"e1\" → 412，什么都没写"],
+                ["k", "失败是好事：B 知道有人抢先了，而不是悄悄覆盖掉 A"]] },
+        { btn: "对比：如果不带条件", tip: "两个快照都保住了", items: init.concat(read, aPut, bRetry),
+          log: [["ok", "B 基于 \"e2\" 重新合并出 [s1, s2, s3]，带 If-Match: \"e2\" 提交成功"]] },
+        { btn: "重来", tip: "后写的覆盖先写的", items: init.concat(read, aPut, bBlind),
+          log: [["w", "不带 If-Match 时 B 的 PUT 直接成功，A 加入的 s2 被悄悄覆盖，没有任何报错"],
+                ["k", "以前只能在旁边放一个数据库或锁服务来防这种“丢失更新”"]] }
+      ];
+      var step = 0;
+
+      function el(tag, attrs, text) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        if (text != null) n.textContent = text;
+        dyn.appendChild(n);
+        return n;
+      }
+
+      function render() {
+        var s = steps[step];
+        while (dyn.firstChild) dyn.removeChild(dyn.firstChild);
+        s.items.forEach(function (it) {
+          if (it.t === "s") {
+            el("rect", { x: S - 95, y: it.y, width: 190, height: 22, rx: 4, "class": "st " + it.cls });
+            el("text", { x: S, y: it.y + 15, "text-anchor": "middle", "class": "m" }, it.text);
+            return;
+          }
+          var dir = it.to > it.from ? 1 : -1;
+          el("path", { "class": "msg " + it.cls, d: "M" + (it.from + dir * 4) + " " + it.y + " H" + (it.to - dir * 4), "marker-end": "url(#ocs-ar" + (it.cls ? "-" + it.cls : "") + ")" });
+          el("text", { x: (it.from + it.to) / 2, y: it.y - 5, "text-anchor": "middle", "class": "m lab " + it.cls }, it.text);
+        });
+        btn.textContent = s.btn;
+        tip.textContent = s.tip;
+        log.innerHTML = "";
+        s.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      render();
+    })();
+  </script>
+</div>

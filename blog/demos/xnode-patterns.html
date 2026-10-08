@@ -1,0 +1,160 @@
+<div class="xnode-patterns-demo">
+  <style>
+    .xnode-patterns-demo {
+      --xp-fg: var(--fg, #09090b);
+      --xp-muted: var(--muted, #71717a);
+      --xp-line: var(--line, #e4e4e7);
+      --xp-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--xp-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--xp-fg);
+    }
+    .xnode-patterns-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--xp-soft); }
+    .xnode-patterns-demo text { font-size: 12px; fill: var(--xp-fg); }
+    .xnode-patterns-demo .s { font-size: 11px; fill: var(--xp-muted); }
+    .xnode-patterns-demo .b { font-weight: 600; }
+    .xnode-patterns-demo .node { fill: #fff; stroke: var(--xp-fg); stroke-width: 1.2; }
+    .xnode-patterns-demo .store { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.3; }
+    .xnode-patterns-demo .ar { fill: none; stroke: #2563eb; stroke-width: 1.6; transition: stroke-width .3s; }
+    .xnode-patterns-demo .ar.fat { stroke-width: 7; stroke-opacity: .55; }
+    .xnode-patterns-demo .ar.thin { stroke-dasharray: 6 4; }
+    .xnode-patterns-demo .wait { fill: #d97706; transition: width .45s ease; }
+    .xnode-patterns-demo .run { fill: #16a34a; transition: x .45s ease, width .45s ease; }
+    .xnode-patterns-demo .bg { fill: #fff; stroke: var(--xp-line); }
+    .xnode-patterns-demo .tabs {
+      display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px;
+      border-top: 1px solid var(--xp-line);
+    }
+    .xnode-patterns-demo .tabs button {
+      font: inherit; font-size: 12.5px; padding: 4px 10px; cursor: pointer;
+      border: 1px solid var(--xp-line); border-radius: 6px; background: #fff; color: var(--xp-fg);
+    }
+    .xnode-patterns-demo .tabs button[aria-pressed="true"] { background: var(--xp-fg); color: #fff; border-color: var(--xp-fg); }
+    .xnode-patterns-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--xp-muted); border-top: 1px solid var(--xp-line);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .xnode-patterns-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 300" role="img" aria-label="三种跨机做法对比：整包搬运要等整个包下载完才能启动；块级按需只先取映射表，缺块时再取；共享文件系统让目标节点直接打开同一个路径，读到哪取到哪">
+    <defs>
+      <marker id="xp-ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2563eb"/></marker>
+    </defs>
+
+    <rect class="node" x="20" y="20" width="200" height="120" rx="8"/>
+    <text class="b" x="120" y="42" text-anchor="middle">节点 A（暂停）</text>
+    <text x="34" y="70" data-k="a1"></text>
+    <text class="s" x="34" y="92" data-k="a2"></text>
+    <text class="s" x="34" y="112" data-k="a3"></text>
+
+    <rect class="store" x="290" y="20" width="220" height="120" rx="8"/>
+    <text class="b" x="400" y="42" text-anchor="middle" data-k="st"></text>
+    <text x="304" y="70" data-k="s1"></text>
+    <text class="s" x="304" y="92" data-k="s2"></text>
+    <text class="s" x="304" y="112" data-k="s3"></text>
+
+    <rect class="node" x="580" y="20" width="200" height="120" rx="8"/>
+    <text class="b" x="680" y="42" text-anchor="middle">节点 B（恢复）</text>
+    <text x="594" y="70" data-k="b1"></text>
+    <text class="s" x="594" y="92" data-k="b2"></text>
+    <text class="s" x="594" y="112" data-k="b3"></text>
+
+    <path class="ar" d="M222 80 H286" marker-end="url(#xp-ar)" data-k="up"/>
+    <path class="ar" d="M512 80 H576" marker-end="url(#xp-ar)" data-k="down"/>
+    <text class="s" x="254" y="160" text-anchor="middle" data-k="upt"></text>
+    <text class="s" x="544" y="160" text-anchor="middle" data-k="downt"></text>
+
+    <text class="b" x="20" y="200">节点 B 上的时间线</text>
+    <rect class="bg" x="20" y="212" width="760" height="26" rx="4"/>
+    <rect class="wait" x="21" y="213" height="24" width="0" data-k="w"/>
+    <rect class="run" y="213" height="24" x="21" width="0" data-k="r"/>
+    <text x="30" y="229" fill="#fff" data-k="wt"></text>
+    <text x="0" y="229" fill="#fff" data-k="rt"></text>
+    <text class="s" x="20" y="262" data-k="t1"></text>
+    <text class="s" x="20" y="282" data-k="t2"></text>
+  </svg>
+  <div class="tabs" role="group" aria-label="跨机做法"></div>
+  <p class="cap" data-k="cap"></p>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var tabs = root.querySelector(".tabs");
+      function q(k) { return root.querySelector('[data-k="' + k + '"]'); }
+
+      var P = [
+        { tab: "整包搬运",
+          a: ["把根文件系统提交成一份包", "OCI 镜像 / tar / 完整磁盘文件", "大小 ≈ 整个文件系统"],
+          st: "镜像仓库 / 对象存储", s: ["一份自包含的完整包", "没有映射表，包就是全部", "下载时只能从头读到尾"],
+          b: ["下载、解包，然后启动", "包不到齐，进程起不来", "内存通常不在包里"],
+          up: "fat", down: "fat", upt: "整包上传", downt: "整包下载",
+          w: 0.72, wt: "等整包下载、解包", rt: "运行",
+          t1: "恢复前必须到位的数据：整个包。耗时随包大小线性增长。",
+          t2: "实现最简单，任何存储都能用；代价是大包慢，而且同一份数据每个节点都要完整拉一遍。",
+          cap: "例子：Daytona 容器沙箱的归档（文件系统备份进对象存储，恢复时可落到新 runner）；OpenSandbox 的 BatchSandbox 暂停（根文件系统提交成 OCI 镜像推到仓库）。两者都只带文件系统，不带内存。" },
+        { tab: "块级按需",
+          a: ["只导出相对上一层的脏块、脏页", "加一张“哪个块在哪一层”的映射", "大小 ≈ 这次改过的数据"],
+          st: "对象存储 + 自研格式", s: ["块（512 KiB～4 MiB 一个对象）", "映射表：header / LSMT 索引 / manifest", "多层 diff 叠在模板上"],
+          b: ["先取映射表，拼出块设备", "缺页、缺块时再去取", "NBD / ublk / NVMe + UFFD 或映射文件"],
+          up: "thin", down: "thin", upt: "增量块", downt: "映射表 + 按需取块",
+          w: 0.14, wt: "取映射", rt: "运行（缺块时边跑边取）",
+          t1: "恢复前必须到位的数据：映射表和第一批被碰到的块。其余在运行中按需取。",
+          t2: "启动快，跨节点只付真正用到的字节；代价是要自己维护块格式、映射、缓存、垃圾回收和多层合并。",
+          cap: "例子：E2B（GCS/S3 上的 memfile 与 rootfs diff，UFFD + NBD 按需供数）、Kimi AgentENV 与 DeepSeek DSec 的 microVM 盘（OverlayBD + ublk）、AWS Lambda SnapStart（512 KiB chunk + 两级缓存），以及 CubeSandbox 现在的 CubeS3lvol（SPDK esnap 克隆读穿到导出）。" },
+        { tab: "共享文件系统",
+          a: ["把快照写成普通文件", "克隆上一份 + 覆盖改过的页", "close 时上传块、提交元数据"],
+          st: "分布式文件系统", s: ["元数据引擎：文件 → 块的映射", "对象存储：不可变的块", "多节点同一个命名空间"],
+          b: ["open 同一个路径", "mmap / read 时按需取块", "节点本地缓存兜底"],
+          up: "thin", down: "thin", upt: "只上传新写的块", downt: "按需读同一路径",
+          w: 0.12, wt: "open", rt: "运行（缺页时边跑边取）",
+          t1: "恢复前必须到位的数据：文件的元数据和第一批被碰到的块。映射由文件系统维护。",
+          t2: "沙箱这边只管“写文件、打开文件”；块格式、缓存、一致性、回收交给文件系统。代价是多了一个元数据引擎要保证高可用。",
+          cap: "例子：Modal（gVisor 的内存页文件放在自家 FUSE 分布式文件服务上，并主动预读进页缓存）、Fly.io Sprites（改造过的 JuiceFS 当根存储）、DSec（3FS）、AgentENV 的 posix_fs 快照仓库。本文给 CubeSandbox 设计的 JuiceFS 方案也属于这一类。" }
+      ];
+      var cur = 0;
+
+      function show(i) {
+        cur = i;
+        var p = P[i];
+        ["a1", "a2", "a3"].forEach(function (k, j) { q(k).textContent = p.a[j]; });
+        ["s1", "s2", "s3"].forEach(function (k, j) { q(k).textContent = p.s[j]; });
+        ["b1", "b2", "b3"].forEach(function (k, j) { q(k).textContent = p.b[j]; });
+        q("st").textContent = p.st;
+        q("up").setAttribute("class", "ar " + p.up);
+        q("down").setAttribute("class", "ar " + p.down);
+        q("upt").textContent = p.upt;
+        q("downt").textContent = p.downt;
+        var ww = Math.round(p.w * 758);
+        q("w").setAttribute("width", ww);
+        q("r").setAttribute("x", 21 + ww);
+        q("r").setAttribute("width", 758 - ww);
+        q("wt").textContent = p.wt;
+        q("rt").setAttribute("x", 31 + ww);
+        q("rt").textContent = p.rt;
+        q("t1").textContent = p.t1;
+        q("t2").textContent = p.t2;
+        q("cap").textContent = p.cap;
+        tabs.querySelectorAll("button").forEach(function (b, j) {
+          b.setAttribute("aria-pressed", j === i ? "true" : "false");
+        });
+      }
+
+      P.forEach(function (p, i) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = p.tab;
+        b.addEventListener("click", function () { show(i); });
+        tabs.appendChild(b);
+      });
+      svg.addEventListener("click", function () { show((cur + 1) % P.length); });
+      show(0);
+    })();
+  </script>
+</div>

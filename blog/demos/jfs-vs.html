@@ -1,0 +1,117 @@
+<div class="jfs-vs-demo">
+  <style>
+    .jfs-vs-demo {
+      --jv-fg: var(--fg, #09090b);
+      --jv-muted: var(--muted, #71717a);
+      --jv-line: var(--line, #e4e4e7);
+      --jv-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--jv-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--jv-fg);
+    }
+    .jfs-vs-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--jv-soft); }
+    .jfs-vs-demo text { font-size: 12px; fill: var(--jv-fg); }
+    .jfs-vs-demo .s { font-size: 11px; fill: var(--jv-muted); }
+    .jfs-vs-demo .b { font-weight: 600; }
+    .jfs-vs-demo .m { font-family: var(--mono, ui-monospace, monospace); font-size: 11.5px; }
+    .jfs-vs-demo .pane { fill: #fff; stroke: var(--jv-fg); stroke-width: 1.2; }
+    .jfs-vs-demo .head { font-size: 13px; font-weight: 600; }
+    .jfs-vs-demo .k { font-size: 11px; fill: var(--jv-muted); }
+    .jfs-vs-demo .v { font-size: 12px; font-weight: 600; }
+    .jfs-vs-demo .bad { fill: #b45309; }
+    .jfs-vs-demo .good { fill: #15803d; }
+    .jfs-vs-demo .sep { stroke: var(--jv-line); }
+    .jfs-vs-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--jv-line);
+    }
+    .jfs-vs-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--jv-fg); border-radius: 6px; background: var(--jv-fg); color: #fff;
+    }
+    .jfs-vs-demo .bar .s { font-size: 12px; color: var(--jv-muted); }
+  </style>
+
+  <svg viewBox="0 0 800 270" role="img" aria-label="对比一个文件对应一个对象的挂载工具与 JuiceFS 在改名目录、改写大文件中间几 KB、列出大目录时各自要发出的请求">
+    <text class="b" x="400" y="26" text-anchor="middle" data-k="title"></text>
+
+    <rect class="pane" x="20" y="40" width="370" height="216" rx="8"/>
+    <text class="head" x="36" y="64">一个文件 = 一个对象（s3fs、ossfs、cosfs）</text>
+    <rect class="pane" x="410" y="40" width="370" height="216" rx="8"/>
+    <text class="head" x="426" y="64">JuiceFS：元数据 + 不可变块</text>
+
+    <g data-k="L"></g>
+    <g data-k="R"></g>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="s">点画面或按钮切换场景</span></div>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var NS = "http://www.w3.org/2000/svg";
+      function q(k) { return root.querySelector('[data-k="' + k + '"]'); }
+
+      var steps = [
+        { btn: "改名一个目录", title: "同样挂在 /mnt 下，同样能 ls、cat、vim，差别在底下发出的请求",
+          L: { lines: ["桶里能直接看到 data/a/1.jpg、data/a/2.jpg …", "文件名就是对象键，目录只是键里的 /", "权限、mtime 塞进 x-amz-meta-* 头"],
+               st: [] },
+          R: { lines: ["桶里只有 myjfs/chunks/… 编号对象", "文件名、目录树都在元数据引擎里", "离开 JuiceFS 客户端读不懂桶里的内容"],
+               st: [] } },
+        { btn: "改写大文件中间 4 KiB", title: "mv /mnt/data/a /mnt/data/b，目录下有 1,000 个文件",
+          L: { lines: ["ListObjectsV2 prefix=data/a/", "CopyObject data/a/… → data/b/…  ×1000", "DeleteObject data/a/…  ×1000"],
+               st: [["对象存储请求", "约 2,000 次", 1], ["服务端复制的数据", "目录总大小", 1], ["原子性", "无，中途失败留下一半", 1]] },
+          R: { lines: ["一个元数据事务：", "  删除目录项 (data, \"a\")", "  插入目录项 (data, \"b\") → 同一个 inode"],
+               st: [["对象存储请求", "0 次", 0], ["搬动的数据", "0 字节", 0], ["原子性", "有，由数据库事务保证", 0]] } },
+        { btn: "列一个大目录", title: "改写 10 GiB 文件中间的 4 KiB",
+          L: { lines: ["对象不能原地修改，只能整体重新生成：", "要么重新上传 10 GiB，要么分片上传时用", "UploadPartCopy 在服务端拼回没改的部分"],
+               st: [["对象存储请求", "几次到上千次", 1], ["上传的数据", "最少一个 5 MiB 分片，最多 10 GiB", 1], ["本地暂存", "通常要在本地缓存被改的对象", 1]] },
+          R: { lines: ["PUT myjfs/chunks/…/2001_0_4096", "元数据事务：c{inode}_{index} 追加", "  Slice{pos, id:2001, size:4K}"],
+               st: [["对象存储请求", "1 次 PUT", 0], ["上传的数据", "4 KiB", 0], ["本地暂存", "写缓冲区里的 4 KiB", 0]] } },
+        { btn: "重来", title: "ls -l 一个有 10,000 个文件的目录",
+          L: { lines: ["ListObjectsV2 ×10 页（每页最多 1000 个键）", "权限、属主、mtime 不在列表结果里，", "常常还要逐个 HEAD，靠本地 stat 缓存缓解"],
+               st: [["对象存储请求", "10 次 LIST，外加最多 10,000 次 HEAD", 1], ["单次延迟", "每次几十毫秒", 1], ["结果", "冷启动时明显卡顿", 1]] },
+          R: { lines: ["readdir：扫描目录项 d{inode}", "readdirplus 批量取回 10,000 个 inode 属性", "全部在元数据引擎里完成"],
+               st: [["对象存储请求", "0 次", 0], ["单次延迟", "Redis 上 readdir 1k 条约 1.5 ms", 0], ["结果", "和本地文件系统手感接近", 0]] } }
+      ];
+      var step = 0;
+
+      function fill(g, x, side) {
+        while (g.firstChild) g.removeChild(g.firstChild);
+        function el(tag, a, txt) {
+          var n = document.createElementNS(NS, tag);
+          for (var k in a) n.setAttribute(k, a[k]);
+          if (txt != null) n.textContent = txt;
+          g.appendChild(n);
+          return n;
+        }
+        side.lines.forEach(function (l, i) {
+          el("text", { x: x + 16, y: 92 + i * 20, "class": "m" }, l);
+        });
+        if (side.st.length) el("line", { x1: x + 16, y1: 160, x2: x + 354, y2: 160, "class": "sep" });
+        side.st.forEach(function (r, i) {
+          var y = 182 + i * 24;
+          el("text", { x: x + 16, y: y, "class": "k" }, r[0]);
+          el("text", { x: x + 120, y: y, "class": "v " + (r[2] ? "bad" : "good") }, r[1]);
+        });
+      }
+
+      function render() {
+        var s = steps[step];
+        q("title").textContent = s.title;
+        fill(q("L"), 20, s.L);
+        fill(q("R"), 410, s.R);
+        btn.textContent = s.btn;
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      render();
+    })();
+  </script>
+</div>

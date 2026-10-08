@@ -1,0 +1,204 @@
+<div class="os-ec-demo">
+  <style>
+    .os-ec-demo {
+      --oe-fg: var(--fg, #09090b);
+      --oe-muted: var(--muted, #71717a);
+      --oe-line: var(--line, #e4e4e7);
+      --oe-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--oe-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--oe-fg);
+    }
+    .os-ec-demo svg { display: block; width: 100%; height: auto; user-select: none; background: var(--oe-soft); }
+    .os-ec-demo text { font-size: 12px; fill: var(--oe-fg); }
+    .os-ec-demo .s { font-size: 11px; fill: var(--oe-muted); }
+    .os-ec-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .os-ec-demo .zl { font-size: 12px; font-weight: 600; fill: var(--oe-muted); }
+    .os-ec-demo .az { fill: #fff; stroke: var(--oe-line); transition: fill .3s; }
+    .os-ec-demo .az.down { fill: #e4e4e7; }
+    .os-ec-demo .disk { cursor: pointer; }
+    .os-ec-demo .disk rect { stroke-width: 1.3; transition: fill .3s, stroke .3s, opacity .3s; }
+    .os-ec-demo .disk.d rect { fill: #dbeafe; stroke: #2563eb; }
+    .os-ec-demo .disk.p rect { fill: #fde68a; stroke: #d97706; }
+    .os-ec-demo .disk.fail rect { fill: #fee2e2; stroke: #dc2626; }
+    .os-ec-demo .disk.off rect { opacity: .35; }
+    .os-ec-demo .disk.fixed rect { stroke: #16a34a; stroke-width: 2.2; }
+    .os-ec-demo .disk .x { opacity: 0; stroke: #dc2626; stroke-width: 2.4; transition: opacity .2s; }
+    .os-ec-demo .disk.fail .x { opacity: 1; }
+    .os-ec-demo .slot { stroke-width: 1.2; transition: fill .3s, stroke .3s; }
+    .os-ec-demo .slot.on { fill: #dcfce7; stroke: #16a34a; }
+    .os-ec-demo .slot.no { fill: #fff; stroke: #d4d4d8; stroke-dasharray: 4 3; }
+    .os-ec-demo .verdict { font-size: 15px; font-weight: 600; }
+    .os-ec-demo .verdict.ok { fill: #16a34a; }
+    .os-ec-demo .verdict.edge { fill: #d97706; }
+    .os-ec-demo .verdict.bad { fill: #dc2626; }
+    .os-ec-demo .azt { cursor: pointer; text-decoration: underline; fill: #2563eb; }
+    .os-ec-demo .bar {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px; flex-wrap: wrap;
+      border-top: 1px solid var(--oe-line); font-size: 12px; color: var(--oe-muted);
+    }
+    .os-ec-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--oe-fg); border-radius: 6px; background: var(--oe-fg); color: #fff;
+    }
+    .os-ec-demo button.sec { background: #fff; color: var(--oe-fg); }
+    .os-ec-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 3.2em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .os-ec-demo .log .k { color: #a1a1aa; }
+    .os-ec-demo .log .w { color: #f87171; }
+    .os-ec-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .os-ec-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 300" role="img" aria-label="纠删码 RS(5,4) 演示：9 个分片分布在三个可用区，点击盘让它损坏，存活分片不少于 5 片时对象仍可读">
+    <g class="dyn"></g>
+  </svg>
+  <div class="bar">
+    <button type="button" class="next"></button>
+    <button type="button" class="sec fix">修复</button>
+    <span>也可以直接点盘，或点可用区名字让它断电</span>
+  </div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var dyn = root.querySelector(".dyn");
+      var next = root.querySelector(".next");
+      var fix = root.querySelector(".fix");
+      var log = root.querySelector(".log");
+      var NS = "http://www.w3.org/2000/svg";
+      var K = 5, N = 9;
+      var NAMES = ["d1", "d2", "d3", "d4", "d5", "p1", "p2", "p3", "p4"];
+      var AZN = ["可用区 a", "可用区 b", "可用区 c"];
+
+      var fail, down, fixed, script;
+      var SCRIPT = [
+        { btn: "坏掉一块盘", run: function () { fail[1] = true; say([["w", "az-a 上存 d2 的盘读出来校验和不对，标记损坏"]]); } },
+        { btn: "可用区 b 整体断电", run: function () { down[1] = true; say([["w", "az-b 断电：d4、d5、p1 三片同时不可达"]]); } },
+        { btn: "再坏一块盘", run: function () { fail[7] = true; say([["w", "az-c 上存 p3 的盘故障"]]); } },
+        { btn: "重来", run: reset }
+      ];
+
+      function reset() {
+        fail = [false, false, false, false, false, false, false, false, false];
+        down = [false, false, false];
+        fixed = [];
+        script = 0;
+        say([["k", "RS(5,4)：一个对象切成 5 个数据片（蓝）+ 4 个校验片（黄），每个可用区放 3 片"],
+             ["k", "开销 9/5 = 1.8 倍；三副本是 3 倍，却只能容忍丢 2 份"]]);
+      }
+
+      function el(parent, tag, attrs, text) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        if (text != null) n.textContent = text;
+        parent.appendChild(n);
+        return n;
+      }
+
+      function say(lines) {
+        log.innerHTML = "";
+        lines.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function alive(i) { return !fail[i] && !down[Math.floor(i / 3)]; }
+
+      function render() {
+        while (dyn.firstChild) dyn.removeChild(dyn.firstChild);
+        var n = 0;
+        for (var i = 0; i < N; i++) if (alive(i)) n++;
+
+        AZN.forEach(function (name, a) {
+          var x0 = 20 + a * 260;
+          el(dyn, "rect", { x: x0, y: 14, width: 240, height: 150, rx: 8, "class": "az" + (down[a] ? " down" : "") });
+          var t = el(dyn, "text", { x: x0 + 12, y: 34, "class": "azt" }, name + (down[a] ? "（断电，点击恢复）" : ""));
+          t.addEventListener("click", function () {
+            down[a] = !down[a];
+            say([[down[a] ? "w" : "ok", "az-" + "abc"[a] + (down[a] ? " 断电，3 片同时不可达" : " 恢复供电")]]);
+            render();
+          });
+          for (var j = 0; j < 3; j++) {
+            var idx = a * 3 + j;
+            var dx = x0 + 18 + j * 74, dy = 50;
+            var cls = "disk " + NAMES[idx][0] + (fail[idx] ? " fail" : "") + (down[a] ? " off" : "") + (fixed.indexOf(idx) >= 0 ? " fixed" : "");
+            var g = el(dyn, "g", { "class": cls, role: "button", "aria-label": "盘 " + NAMES[idx] });
+            el(g, "rect", { x: dx, y: dy, width: 56, height: 96, rx: 8 });
+            el(g, "text", { x: dx + 28, y: dy + 46, "text-anchor": "middle", "class": "m" }, NAMES[idx]);
+            el(g, "text", { x: dx + 28, y: dy + 84, "text-anchor": "middle", "class": "s" }, idx < 5 ? "数据" : "校验");
+            el(g, "path", { "class": "x", d: "M" + (dx + 10) + " " + (dy + 12) + "l36 72M" + (dx + 46) + " " + (dy + 12) + "l-36 72" });
+            (function (k) {
+              g.addEventListener("click", function () {
+                fail[k] = !fail[k];
+                fixed = fixed.filter(function (f) { return f !== k; });
+                say([[fail[k] ? "w" : "ok", "盘 " + NAMES[k] + (fail[k] ? " 损坏" : " 换好了")]]);
+                render();
+              });
+            })(idx);
+          }
+        });
+
+        el(dyn, "text", { x: 20, y: 196, "class": "zl" }, "可读的分片");
+        for (var s = 0; s < N; s++) {
+          el(dyn, "rect", { x: 110 + s * 34, y: 182, width: 28, height: 22, rx: 4, "class": "slot " + (s < n ? "on" : "no") });
+        }
+        el(dyn, "path", { d: "M" + (110 + K * 34 - 3) + " 176 V212", stroke: "#09090b", "stroke-width": 1.5, "stroke-dasharray": "3 2" });
+        el(dyn, "text", { x: 110 + K * 34 - 3, y: 226, "text-anchor": "middle", "class": "s" }, "至少 5 片");
+        el(dyn, "text", { x: 430, y: 198, "class": "m" }, n + " / 9");
+
+        var v, cls;
+        if (n === N) { v = "完好：直接读 5 个数据片"; cls = "ok"; }
+        else if (n > K) { v = "可读：还能再丢 " + (n - K) + " 片"; cls = "ok"; }
+        else if (n === K) { v = "可读，但已经没有余量"; cls = "edge"; }
+        else { v = "读不回来：只剩 " + n + " 片，少于 5 片"; cls = "bad"; }
+        el(dyn, "text", { x: 20, y: 262, "class": "verdict " + cls }, v);
+        el(dyn, "text", { x: 20, y: 284, "class": "s" },
+          n < N && n >= K ? "缺了数据片时，要读校验片现算回来，读延迟和修复流量都会变高" : "任意 5 片都能解出原始数据，不管丢的是数据片还是校验片");
+
+        next.textContent = SCRIPT[script].btn;
+        fix.disabled = n === N && down.every(function (d) { return !d; });
+      }
+
+      next.addEventListener("click", function () {
+        var s = SCRIPT[script];
+        script = (script + 1) % SCRIPT.length;
+        s.run();
+        render();
+      });
+
+      fix.addEventListener("click", function () {
+        var n = 0, lost = [];
+        for (var i = 0; i < N; i++) { if (alive(i)) n++; else lost.push(i); }
+        if (n < K) {
+          say([["w", "只剩 " + n + " 片可读，少于 5 片，解不出原始数据：这个对象丢了"],
+               ["k", "持久性的关键是修得比坏得快：在第 5 片坏掉之前把缺的片补回来"]]);
+          return;
+        }
+        var names = lost.map(function (i) { return NAMES[i]; }).join("、");
+        say([["", "repair: 读任意 5 片存活分片 → RS 解码 → 重新算出 " + names],
+             ["ok", "写到其他健康的盘上，元数据层更新这 " + lost.length + " 片的新位置"],
+             ["k", "修 1 片要读 5 片：这就是纠删码修复比副本贵的地方，也是 LRC 要解决的问题"]]);
+        fixed = lost.slice();
+        fail = fail.map(function () { return false; });
+        down = [false, false, false];
+        render();
+      });
+
+      reset();
+      render();
+    })();
+  </script>
+</div>

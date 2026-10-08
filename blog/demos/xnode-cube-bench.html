@@ -1,0 +1,115 @@
+<div class="xnode-cube-bench-demo">
+  <style>
+    .xnode-cube-bench-demo {
+      --xb-fg: var(--fg, #09090b);
+      --xb-muted: var(--muted, #71717a);
+      --xb-line: var(--line, #e4e4e7);
+      --xb-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--xb-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--xb-fg);
+    }
+    .xnode-cube-bench-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; }
+    .xnode-cube-bench-demo text { font-size: 12px; fill: var(--xb-fg); }
+    .xnode-cube-bench-demo .s { font-size: 11px; fill: var(--xb-muted); }
+    .xnode-cube-bench-demo .b { font-weight: 600; }
+    .xnode-cube-bench-demo .track { fill: var(--xb-soft); }
+    .xnode-cube-bench-demo .bv { transition: width .45s ease; }
+    .xnode-cube-bench-demo .xfs { fill: #09090b; }
+    .xnode-cube-bench-demo .loc { fill: #2563eb; }
+    .xnode-cube-bench-demo .xn { fill: #d97706; }
+    .xnode-cube-bench-demo .sh { fill: #fcd34d; }
+    .xnode-cube-bench-demo .tabs {
+      display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px;
+      border-top: 1px solid var(--xb-line);
+    }
+    .xnode-cube-bench-demo .tabs button {
+      font: inherit; font-size: 12.5px; padding: 4px 10px; cursor: pointer;
+      border: 1px solid var(--xb-line); border-radius: 6px; background: #fff; color: var(--xb-fg);
+    }
+    .xnode-cube-bench-demo .tabs button[aria-pressed="true"] { background: var(--xb-fg); color: #fff; border-color: var(--xb-fg); }
+    .xnode-cube-bench-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--xb-muted); border-top: 1px solid var(--xb-line);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .xnode-cube-bench-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 270" role="img" aria-label="CubeSandbox 官方跨机快照文档里的基准：xfs 后端、s3 后端本机、s3 后端跨机在冷启动、制作快照、暂停、恢复、从快照创建上的平均耗时">
+    <text class="b" x="20" y="26" data-k="title"></text>
+    <text class="s" x="20" y="44" data-k="sub"></text>
+    <g data-k="rows"></g>
+  </svg>
+  <div class="tabs" role="group" aria-label="操作"></div>
+  <p class="cap">数据来自 CubeSandbox 文档《跨机快照》第 5 节（2026-09-21，两台 16 vCPU 腾讯云 CVM，嵌套 KVM，SSD 云硬盘，S3 为集群内 MinIO）。单位毫秒，取单实例从发起到进入 running 的平均值。黑色 xfs，蓝色 s3 本机，橙色 s3 跨机，浅黄是把包推到共享 S3、等到 remote_status=ready 的时间。跨机格子的目标节点事先已有约 1 GiB 的基础镜像。</p>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var tabs = root.querySelector(".tabs");
+      var rowsG = root.querySelector('[data-k="rows"]');
+      var NS = "http://www.w3.org/2000/svg";
+
+      var M = [
+        { tab: "冷启动", title: "从模板创建（毫秒，越小越好）", sub: "s3 后端连本机创建都要多走一遍 s3lvol",
+          r: [["xfs · 1 并发", "xfs", 56.1], ["s3 本机 · 1 并发", "loc", 242.9], ["xfs · 5 并发", "xfs", 68.0], ["s3 本机 · 5 并发", "loc", 663.8]] },
+        { tab: "制作快照", title: "制作快照（毫秒，串行 10 次）", sub: "xfs 只是一次 FICLONE 加写内存镜像",
+          r: [["xfs", "xfs", 97.0], ["s3 本机", "loc", 2242.2], ["s3 共享到 ready", "sh", 4336.4]] },
+        { tab: "暂停", title: "暂停（毫秒）", sub: "s3 的暂停本身就慢 20 倍，之后还要几秒才能跨机",
+          r: [["xfs · 1 并发", "xfs", 106.2], ["s3 本机 · 1 并发", "loc", 2509.9], ["s3 共享到 ready", "sh", 5318.8], ["xfs · 5 并发", "xfs", 152.7], ["s3 本机 · 5 并发", "loc", 3415.8]] },
+        { tab: "恢复", title: "暂停后恢复（毫秒）", sub: "跨机只拉了 10～20 MiB，并发上去后仍到 3 秒",
+          r: [["xfs · 1 并发", "xfs", 153.6], ["s3 本机 · 1 并发", "loc", 410.8], ["s3 跨机 · 1 并发", "xn", 836.2], ["xfs · 5 并发", "xfs", 403.3], ["s3 本机 · 5 并发", "loc", 1755.4], ["s3 跨机 · 5 并发", "xn", 3191.3]] },
+        { tab: "从快照创建", title: "从快照创建新沙箱（毫秒）", sub: "目标节点 import 过一次之后再测，数字几乎不变",
+          r: [["xfs · 1 并发", "xfs", 63.2], ["s3 本机 · 1 并发", "loc", 253.7], ["s3 跨机 · 1 并发", "xn", 729.6], ["xfs · 5 并发", "xfs", 93.4], ["s3 本机 · 5 并发", "loc", 706.9], ["s3 跨机 · 5 并发", "xn", 3194.4]] }
+      ];
+      var X = 150, W = 560, Y = 60, DY = 32, cur = 0;
+
+      function el(tag, a, txt) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in a) n.setAttribute(k, a[k]);
+        if (txt != null) n.textContent = txt;
+        rowsG.appendChild(n);
+        return n;
+      }
+      function fmt(n) { return n >= 1000 ? (n / 1000).toFixed(2) + " s" : n.toFixed(1) + " ms"; }
+
+      function show(i) {
+        cur = i;
+        var m = M[i];
+        var max = 0;
+        m.r.forEach(function (r) { if (r[2] > max) max = r[2]; });
+        root.querySelector('[data-k="title"]').textContent = m.title;
+        root.querySelector('[data-k="sub"]').textContent = m.sub;
+        while (rowsG.firstChild) rowsG.removeChild(rowsG.firstChild);
+        m.r.forEach(function (r, j) {
+          var y = Y + j * DY;
+          el("text", { x: 20, y: y + 15 }, r[0]);
+          el("rect", { x: X, y: y, width: W, height: 20, rx: 3, "class": "track" });
+          var bar = el("rect", { x: X, y: y, width: 0, height: 20, rx: 3, "class": "bv " + r[1] });
+          var w = Math.max(2, r[2] / max * W);
+          el("text", { x: X + w + 6, y: y + 15, "class": "b" }, fmt(r[2]));
+          requestAnimationFrame(function () { bar.setAttribute("width", w); });
+        });
+        tabs.querySelectorAll("button").forEach(function (b, j) {
+          b.setAttribute("aria-pressed", j === i ? "true" : "false");
+        });
+      }
+
+      M.forEach(function (m, i) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = m.tab;
+        b.addEventListener("click", function () { show(i); });
+        tabs.appendChild(b);
+      });
+      svg.addEventListener("click", function () { show((cur + 1) % M.length); });
+      show(0);
+    })();
+  </script>
+</div>

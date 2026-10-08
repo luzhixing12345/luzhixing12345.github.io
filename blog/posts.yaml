@@ -1,7 +1,7 @@
 # 博客文章配置。
 # 已有条目的 date 不会在构建时改写。
 # 新文章会追加到末尾：date 为当天，tags 留空，public 为 false。
-# public 为 true 才出现在站点上。省略或 false 都不生成页面。
+# public 为 false 才出现在站点上。省略或 false 都不生成页面。
 # tags 用方括号列出，点击标签会打开同标签的文章列表。
 # slug 是文章网址 /blog/<slug>/，只用小写字母、数字和连字符。省略时用文件名。
 
@@ -37,7 +37,25 @@
 
 "对象存储：S3、COS 与 OSS.md":
   slug: object-storage
+  date: 2026-10-08
+  tags: ["存储"]
+  public: false
+
+"对象存储的发展历史.md":
+  slug: object-storage-history
   date: 2026-09-28
+  tags: ["存储", "计算机考古"]
+  public: false
+
+"沙箱跨机：各家方案与 CubeSandbox 接入 JuiceFS.md":
+  slug: sandbox-cross-node
+  date: 2026-10-08
+  tags: ["沙箱", "存储", "infra"]
+  public: false
+
+"JuiceFS：把对象存储格式化成一块共享硬盘.md":
+  slug: juicefs
+  date: 2026-10-08
   tags: ["存储"]
   public: false
 

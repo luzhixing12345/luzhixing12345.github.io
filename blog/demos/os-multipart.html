@@ -1,0 +1,179 @@
+<div class="os-multipart-demo">
+  <style>
+    .os-multipart-demo {
+      --om-fg: var(--fg, #09090b);
+      --om-muted: var(--muted, #71717a);
+      --om-line: var(--line, #e4e4e7);
+      --om-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--om-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--om-fg);
+    }
+    .os-multipart-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--om-soft); }
+    .os-multipart-demo text { font-size: 12px; fill: var(--om-fg); }
+    .os-multipart-demo .s { font-size: 11px; fill: var(--om-muted); }
+    .os-multipart-demo .zl { font-size: 12px; font-weight: 600; fill: var(--om-muted); }
+    .os-multipart-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .os-multipart-demo .zone { fill: #fff; stroke: var(--om-line); }
+    .os-multipart-demo .part { fill: #fff; stroke: var(--om-fg); stroke-width: 1.2; transition: fill .3s, stroke .3s; }
+    .os-multipart-demo [data-st="up"] .part { fill: #fef3c7; stroke: #d97706; }
+    .os-multipart-demo [data-st="ok"] .part { fill: #dcfce7; stroke: #16a34a; }
+    .os-multipart-demo [data-st="err"] .part { fill: #fee2e2; stroke: #dc2626; }
+    .os-multipart-demo .arrow { stroke: #a1a1aa; stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; transition: stroke .3s; }
+    .os-multipart-demo [data-st="ok"] .arrow { stroke: #16a34a; stroke-dasharray: none; }
+    .os-multipart-demo [data-st="err"] .arrow { stroke: #dc2626; }
+    .os-multipart-demo .slot { fill: none; stroke: #a1a1aa; stroke-dasharray: 4 3; transition: fill .3s, stroke .3s; }
+    .os-multipart-demo [data-st="ok"] .slot { fill: #dcfce7; stroke: #16a34a; stroke-dasharray: none; }
+    .os-multipart-demo .meta { fill: #fff; stroke: var(--om-fg); stroke-width: 1.2; transition: fill .3s, stroke .3s; }
+    .os-multipart-demo [data-meta="pending"] .meta { fill: #fffbeb; stroke: #d97706; }
+    .os-multipart-demo [data-meta="done"] .meta { fill: #dcfce7; stroke: #16a34a; }
+    .os-multipart-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--om-line); font-size: 12px; color: var(--om-muted);
+    }
+    .os-multipart-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--om-fg); border-radius: 6px; background: var(--om-fg); color: #fff;
+    }
+    .os-multipart-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 4.8em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .os-multipart-demo .log .k { color: #a1a1aa; }
+    .os-multipart-demo .log .w { color: #f87171; }
+    .os-multipart-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .os-multipart-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 330" role="img" aria-label="分片上传演示：26 MB 文件切成 4 片并行上传，第 3 片失败后单独重传，最后在元数据层一次提交，对象才变得可见">
+    <text class="zl" x="24" y="22">客户端：video.mp4，26 MB，切成 4 片</text>
+
+    <g class="p" data-st="idle">
+      <rect class="part" x="24" y="32" width="218" height="38" rx="4"/>
+      <text class="m" x="133" y="55" text-anchor="middle">分片 1 · 8 MB</text>
+      <path class="arrow" d="M133 70 V150"/>
+      <text class="s lab" x="140" y="114"></text>
+      <rect class="slot" x="83" y="150" width="100" height="34" rx="4"/>
+      <text class="s m" x="133" y="171" text-anchor="middle">part 1</text>
+    </g>
+    <g class="p" data-st="idle">
+      <rect class="part" x="246" y="32" width="218" height="38" rx="4"/>
+      <text class="m" x="355" y="55" text-anchor="middle">分片 2 · 8 MB</text>
+      <path class="arrow" d="M355 70 V150"/>
+      <text class="s lab" x="362" y="114"></text>
+      <rect class="slot" x="305" y="150" width="100" height="34" rx="4"/>
+      <text class="s m" x="355" y="171" text-anchor="middle">part 2</text>
+    </g>
+    <g class="p" data-st="idle">
+      <rect class="part" x="468" y="32" width="218" height="38" rx="4"/>
+      <text class="m" x="577" y="55" text-anchor="middle">分片 3 · 8 MB</text>
+      <path class="arrow" d="M577 70 V150"/>
+      <text class="s lab" x="584" y="114"></text>
+      <rect class="slot" x="527" y="150" width="100" height="34" rx="4"/>
+      <text class="s m" x="577" y="171" text-anchor="middle">part 3</text>
+    </g>
+    <g class="p" data-st="idle">
+      <rect class="part" x="690" y="32" width="86" height="38" rx="4"/>
+      <text class="m" x="733" y="55" text-anchor="middle">4 · 2 MB</text>
+      <path class="arrow" d="M733 70 V150"/>
+      <text class="s lab" x="726" y="94" text-anchor="end"></text>
+      <rect class="slot" x="693" y="150" width="80" height="34" rx="4"/>
+      <text class="s m" x="733" y="171" text-anchor="middle">part 4</text>
+    </g>
+
+    <rect class="zone" x="16" y="136" width="768" height="60" rx="6" fill-opacity="0"/>
+    <text class="zl" x="24" y="132">存储层：分片落盘（对外不可见）</text>
+
+    <text class="zl" x="24" y="226">元数据层：video.mp4 这个键的记录</text>
+    <g class="mt" data-meta="none">
+      <rect class="meta" x="16" y="236" width="768" height="76" rx="6"/>
+      <text class="m mt1" x="32" y="262"></text>
+      <text class="s mt2" x="32" y="284"></text>
+      <text class="s mt3" x="32" y="302"></text>
+    </g>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="tip"></span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var tip = root.querySelector(".tip");
+      var log = root.querySelector(".log");
+      var parts = root.querySelectorAll(".p");
+      var mt = root.querySelector(".mt");
+      var ETAG = ["\"a54f…\"", "\"0c1d…\"", "\"9e77…\"", "\"41b2…\""];
+
+      var steps = [
+        { btn: "CreateMultipartUpload", tip: "大文件不一次性 PUT",
+          st: ["idle", "idle", "idle", "idle"], meta: "none",
+          m: ["video.mp4：不存在", "", ""],
+          log: [["k", "S3 单次 PUT 上限 5 GB；超过之后，或者网络不稳时，走分片上传"],
+                ["k", "除最后一片外每片至少 5 MB，最多 10000 片"]] },
+        { btn: "并行上传 4 个分片", tip: "拿到上传 ID",
+          st: ["idle", "idle", "idle", "idle"], meta: "pending",
+          m: ["UploadId 2~Xb9qL…  状态：进行中", "video.mp4 这个键仍然不存在，GET 会返回 404", ""],
+          log: [["", "POST /video.mp4?uploads"],
+                ["ok", "200 OK  <UploadId>2~Xb9qL…</UploadId>"]] },
+        { btn: "只重传分片 3", tip: "一片失败不用从头再来",
+          st: ["ok", "ok", "err", "ok"], meta: "pending",
+          m: ["UploadId 2~Xb9qL…  已收到 part 1、2、4", "分片已经占用空间并计费，但对象仍不可见", ""],
+          log: [["", "PUT /video.mp4?partNumber=1&uploadId=2~Xb9qL…  →  200 ETag \"a54f…\""],
+                ["", "PUT /video.mp4?partNumber=2&uploadId=2~Xb9qL…  →  200 ETag \"0c1d…\""],
+                ["w", "PUT /video.mp4?partNumber=3&uploadId=2~Xb9qL…  →  连接超时"],
+                ["", "PUT /video.mp4?partNumber=4&uploadId=2~Xb9qL…  →  200 ETag \"41b2…\""],
+                ["k", "此时 GET /video.mp4 → 404 NoSuchKey"]] },
+        { btn: "CompleteMultipartUpload", tip: "4 片都到齐了",
+          st: ["ok", "ok", "ok", "ok"], meta: "pending",
+          m: ["UploadId 2~Xb9qL…  已收到 part 1、2、3、4", "对象仍不可见，等待客户端提交", ""],
+          log: [["", "PUT /video.mp4?partNumber=3&uploadId=2~Xb9qL…  →  200 ETag \"9e77…\""],
+                ["k", "只重传失败的那 8 MB，其余分片原封不动"]] },
+        { btn: "重来", tip: "提交是一次原子的元数据写入",
+          st: ["ok", "ok", "ok", "ok"], meta: "done",
+          m: ["video.mp4 → [part 1, part 2, part 3, part 4]   26 MB   ETag \"3858f622…-4\"",
+              "元数据层一次写入：这 4 片按这个顺序组成这个键。别人要么看不到，要么看到完整的对象",
+              "ETag 末尾的 -4 表示由 4 个分片组成，它不是整个文件的 MD5"],
+          log: [["", "POST /video.mp4?uploadId=2~Xb9qL…"],
+                ["", "  <Part><PartNumber>1</PartNumber><ETag>\"a54f…\"</ETag></Part> …×4"],
+                ["ok", "200 OK  ETag \"3858f62230ac3c915f300c664312c11f-4\""],
+                ["ok", "GET /video.mp4 → 200 OK，Content-Length: 27262976"]] }
+      ];
+      var step = 0;
+
+      function render() {
+        var s = steps[step];
+        parts.forEach(function (g, i) {
+          g.setAttribute("data-st", s.st[i]);
+          var lab = g.querySelector(".lab");
+          lab.textContent = s.st[i] === "ok" ? "200 " + ETAG[i] : s.st[i] === "err" ? "超时" : "";
+        });
+        mt.setAttribute("data-meta", s.meta);
+        mt.querySelector(".mt1").textContent = s.m[0];
+        mt.querySelector(".mt2").textContent = s.m[1];
+        mt.querySelector(".mt3").textContent = s.m[2];
+        btn.textContent = s.btn;
+        tip.textContent = s.tip;
+        log.innerHTML = "";
+        s.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      render();
+    })();
+  </script>
+</div>

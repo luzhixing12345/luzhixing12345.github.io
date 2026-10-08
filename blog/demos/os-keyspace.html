@@ -1,0 +1,201 @@
+<div class="os-keyspace-demo">
+  <style>
+    .os-keyspace-demo {
+      --ok-fg: var(--fg, #09090b);
+      --ok-muted: var(--muted, #71717a);
+      --ok-line: var(--line, #e4e4e7);
+      --ok-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--ok-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--ok-fg);
+    }
+    .os-keyspace-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--ok-soft); }
+    .os-keyspace-demo text { font-size: 12px; fill: var(--ok-fg); }
+    .os-keyspace-demo .s { font-size: 11px; fill: var(--ok-muted); }
+    .os-keyspace-demo .h { font-size: 12px; font-weight: 600; fill: var(--ok-muted); }
+    .os-keyspace-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .os-keyspace-demo .row { fill: #fff; stroke: var(--ok-line); transition: fill .3s, stroke .3s, opacity .3s; }
+    .os-keyspace-demo .row.hit { fill: #dbeafe; stroke: #2563eb; }
+    .os-keyspace-demo .row.fold { fill: #fef3c7; stroke: #d97706; }
+    .os-keyspace-demo .row.miss { opacity: .45; }
+    .os-keyspace-demo .row.new { fill: #dcfce7; stroke: #16a34a; }
+    .os-keyspace-demo .pre { fill: #2563eb; font-weight: 600; }
+    .os-keyspace-demo .ent { fill: #fff; stroke: var(--ok-fg); stroke-width: 1.1; }
+    .os-keyspace-demo .ent.cp { fill: #fffbeb; stroke: #d97706; }
+    .os-keyspace-demo .ent.ct { fill: #eff6ff; stroke: #2563eb; }
+    .os-keyspace-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--ok-line); font-size: 12px; color: var(--ok-muted);
+    }
+    .os-keyspace-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--ok-fg); border-radius: 6px; background: var(--ok-fg); color: #fff;
+    }
+    .os-keyspace-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 4.8em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .os-keyspace-demo .log .k { color: #a1a1aa; }
+    .os-keyspace-demo .log .w { color: #fbbf24; }
+    .os-keyspace-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .os-keyspace-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 330" role="img" aria-label="平面键空间演示：左边是桶里按字典序排好的键，右边是 ListObjectsV2 按 prefix 和 delimiter 返回的“目录”视图">
+    <g class="dyn"></g>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="tip"></span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var dyn = root.querySelector(".dyn");
+      var btn = root.querySelector("button");
+      var tip = root.querySelector(".tip");
+      var log = root.querySelector(".log");
+      var NS = "http://www.w3.org/2000/svg";
+
+      var base = [
+        "README.md",
+        "logs/2026-10-07.gz",
+        "logs/2026-10-08.gz",
+        "photos/2025/x.jpg",
+        "photos/2026/a.jpg",
+        "photos/2026/b.jpg",
+        "photos/2026/c.jpg",
+        "photos/cover.jpg"
+      ];
+      var renamed = [
+        "README.md",
+        "archive/2026/a.jpg",
+        "archive/2026/b.jpg",
+        "archive/2026/c.jpg",
+        "logs/2026-10-07.gz",
+        "logs/2026-10-08.gz",
+        "photos/2025/x.jpg",
+        "photos/cover.jpg"
+      ];
+
+      var steps = [
+        { keys: base, prefix: "", delim: "/", btn: "进入 photos/",
+          tip: "桶的“根目录”",
+          log: [["", "GET /?list-type=2&delimiter=/"],
+                ["k", "没有 prefix：所有键都参与；第一个 / 之前相同的折叠成 CommonPrefixes"]] },
+        { keys: base, prefix: "photos/", delim: "/", btn: "进入 photos/2026/",
+          tip: "“进入目录”就是换一个 prefix",
+          log: [["", "GET /?list-type=2&prefix=photos/&delimiter=/"],
+                ["k", "只看以 photos/ 开头的键，在 prefix 之后遇到 / 的折叠成子目录"]] },
+        { keys: base, prefix: "photos/2026/", delim: "/", btn: "去掉 delimiter",
+          tip: "叶子“目录”里只剩文件",
+          log: [["", "GET /?list-type=2&prefix=photos/2026/&delimiter=/"],
+                ["k", "三个键在 prefix 之后都没有 /，全部作为 Contents 返回"]] },
+        { keys: base, prefix: "photos/", delim: "", btn: "把 photos/2026/ 改名为 archive/2026/",
+          tip: "不带 delimiter 就是递归列举",
+          log: [["", "GET /?list-type=2&prefix=photos/"],
+                ["k", "没有 delimiter 就不折叠：这才是桶里的真实样子，一张按字典序排好的平表"]] },
+        { keys: renamed, prefix: "", delim: "/", btn: "重来", rename: true,
+          tip: "改名 = 逐个复制 + 删除",
+          log: [["w", "PUT archive/2026/a.jpg  x-amz-copy-source: photos/2026/a.jpg"],
+                ["w", "PUT archive/2026/b.jpg  x-amz-copy-source: photos/2026/b.jpg"],
+                ["w", "PUT archive/2026/c.jpg  x-amz-copy-source: photos/2026/c.jpg"],
+                ["", "DELETE photos/2026/a.jpg, b.jpg, c.jpg"],
+                ["k", "没有 rename 接口：一个“目录”有多少个键就要复制多少次，中途别人能同时看到两份"]] }
+      ];
+      var step = 0;
+
+      function el(tag, attrs, text, parent) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        if (text != null) n.textContent = text;
+        (parent || dyn).appendChild(n);
+        return n;
+      }
+
+      function classify(s) {
+        var cps = [], contents = [], marks = [];
+        s.keys.forEach(function (key) {
+          if (key.indexOf(s.prefix) !== 0) { marks.push("miss"); return; }
+          var rest = key.slice(s.prefix.length);
+          var i = s.delim ? rest.indexOf(s.delim) : -1;
+          if (i >= 0) {
+            var cp = s.prefix + rest.slice(0, i + 1);
+            if (cps.indexOf(cp) < 0) cps.push(cp);
+            marks.push("fold");
+          } else {
+            contents.push(key);
+            marks.push("hit");
+          }
+        });
+        return { cps: cps, contents: contents, marks: marks };
+      }
+
+      function render() {
+        var s = steps[step];
+        var r = classify(s);
+        while (dyn.firstChild) dyn.removeChild(dyn.firstChild);
+
+        el("text", { x: 24, y: 28, "class": "h" }, "桶里实际存的：按字典序排好的键");
+        s.keys.forEach(function (key, i) {
+          var y = 40 + i * 33;
+          var cls = "row " + r.marks[i];
+          if (s.rename && key.indexOf("archive/") === 0) cls = "row new";
+          el("rect", { x: 20, y: y, width: 360, height: 27, rx: 4, "class": cls });
+          var t = el("text", { x: 32, y: y + 18, "class": "m" });
+          if (s.prefix && key.indexOf(s.prefix) === 0) {
+            el("tspan", { "class": "pre" }, s.prefix, t);
+            el("tspan", {}, key.slice(s.prefix.length), t);
+          } else {
+            t.textContent = key;
+          }
+          var tag = s.rename && key.indexOf("archive/") === 0 ? "新复制"
+            : r.marks[i] === "fold" ? "折叠" : r.marks[i] === "hit" ? "Contents" : "";
+          if (tag) el("text", { x: 370, y: y + 18, "text-anchor": "end", "class": "s" }, tag);
+        });
+
+        el("text", { x: 420, y: 28, "class": "h" }, "ListObjectsV2 返回的“目录”");
+        el("rect", { x: 416, y: 40, width: 364, height: 30, rx: 4, fill: "#fff", stroke: "#e4e4e7" });
+        el("text", { x: 428, y: 60, "class": "m" },
+          "prefix=" + (s.prefix ? "\"" + s.prefix + "\"" : "（空）") + "  delimiter=" + (s.delim ? "\"/\"" : "（无）"));
+
+        var y = 84;
+        r.cps.forEach(function (cp) {
+          el("rect", { x: 416, y: y, width: 364, height: 27, rx: 4, "class": "ent cp" });
+          el("path", { d: "M428 " + (y + 9) + "h6l2 2h8v10h-16z", fill: "#fde68a", stroke: "#d97706" });
+          el("text", { x: 452, y: y + 18, "class": "m" }, cp);
+          el("text", { x: 770, y: y + 18, "text-anchor": "end", "class": "s" }, "CommonPrefixes");
+          y += 33;
+        });
+        r.contents.forEach(function (key) {
+          el("rect", { x: 416, y: y, width: 364, height: 27, rx: 4, "class": "ent ct" });
+          el("rect", { x: 430, y: y + 7, width: 11, height: 14, rx: 1, fill: "#fff", stroke: "#2563eb" });
+          el("text", { x: 452, y: y + 18, "class": "m" }, key);
+          el("text", { x: 770, y: y + 18, "text-anchor": "end", "class": "s" }, "Contents");
+          y += 33;
+        });
+
+        btn.textContent = s.btn;
+        tip.textContent = s.tip;
+        log.innerHTML = "";
+        s.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      render();
+    })();
+  </script>
+</div>

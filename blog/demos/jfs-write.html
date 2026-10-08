@@ -1,0 +1,180 @@
+<div class="jfs-write-demo">
+  <style>
+    .jfs-write-demo {
+      --jw-fg: var(--fg, #09090b);
+      --jw-muted: var(--muted, #71717a);
+      --jw-line: var(--line, #e4e4e7);
+      --jw-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--jw-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--jw-fg);
+    }
+    .jfs-write-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--jw-soft); }
+    .jfs-write-demo text { font-size: 12px; fill: var(--jw-fg); }
+    .jfs-write-demo .s { font-size: 11px; fill: var(--jw-muted); }
+    .jfs-write-demo .b { font-weight: 600; }
+    .jfs-write-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .jfs-write-demo .box { fill: #fff; stroke: var(--jw-fg); stroke-width: 1.2; }
+    .jfs-write-demo .zone { fill: #fff; stroke: var(--jw-muted); stroke-dasharray: 5 4; }
+    .jfs-write-demo .slot { fill: #fff; stroke: var(--jw-fg); stroke-width: 1.2; }
+    .jfs-write-demo .fill { fill: #bfdbfe; transition: width .4s; }
+    .jfs-write-demo .stage { fill: #fff; stroke: #a1a1aa; stroke-dasharray: 4 3; transition: opacity .3s; }
+    .jfs-write-demo .stage.on { fill: #fffbeb; stroke: #d97706; stroke-dasharray: none; }
+    .jfs-write-demo .obj { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.3; }
+    .jfs-write-demo .meta { fill: #fffbeb; stroke: #d97706; stroke-width: 1.3; }
+    .jfs-write-demo .p { fill: #d97706; }
+    .jfs-write-demo .d { fill: #16a34a; }
+    .jfs-write-demo .ar { fill: none; stroke: var(--jw-fg); stroke-width: 1.4; transition: opacity .3s; }
+    .jfs-write-demo .ar.o { stroke: #2563eb; stroke-dasharray: 6 4; }
+    .jfs-write-demo .ar.mt { stroke: #d97706; }
+    .jfs-write-demo .off { opacity: .12; }
+    .jfs-write-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--jw-line);
+    }
+    .jfs-write-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--jw-fg); border-radius: 6px; background: var(--jw-fg); color: #fff;
+    }
+    .jfs-write-demo .bar .s { font-size: 12px; color: var(--jw-muted); }
+    .jfs-write-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 4.8em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .jfs-write-demo .log .k { color: #a1a1aa; }
+    .jfs-write-demo .log .w { color: #fbbf24; }
+    .jfs-write-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .jfs-write-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 280" role="img" aria-label="JuiceFS 写入流程演示：write 只写进客户端内存缓冲区；攒满 4 MiB 的块提前上传；close 时上传剩余数据，全部成功后才向元数据引擎提交 slice，其他机器从这一刻起看到新内容；writeback 模式则先提交再异步上传">
+    <defs>
+      <marker id="jw-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#09090b"/></marker>
+      <marker id="jw-ar-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2563eb"/></marker>
+      <marker id="jw-ar-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+    </defs>
+
+    <rect class="box" x="20" y="24" width="140" height="56" rx="6"/>
+    <text class="b" x="90" y="46" text-anchor="middle">应用进程</text>
+    <text class="s m" x="90" y="66" text-anchor="middle" data-k="app"></text>
+
+    <rect class="zone" x="200" y="12" width="320" height="200" rx="8"/>
+    <text class="s" x="212" y="30">机器 A 上的 JuiceFS 客户端</text>
+    <text x="220" y="52">读写缓冲区（内存，默认 300 MiB）</text>
+    <rect class="slot" x="220" y="62" width="130" height="34" rx="4"/>
+    <rect class="fill" x="221" y="63" height="32" width="0" data-k="f0"/>
+    <rect class="slot" x="360" y="62" width="130" height="34" rx="4"/>
+    <rect class="fill" x="361" y="63" height="32" width="0" data-k="f1"/>
+    <text class="s m" x="285" y="112" text-anchor="middle">块 0 · 4 MiB</text>
+    <text class="s m" x="425" y="112" text-anchor="middle">块 1 · 4 MiB</text>
+    <text class="s" x="220" y="132" data-k="aview"></text>
+    <rect class="stage" x="220" y="146" width="270" height="52" rx="4" data-k="stage"/>
+    <text class="s" x="232" y="166">本地缓存盘 rawstaging/（只在 --writeback 时用）</text>
+    <text x="232" y="186" data-k="stagetxt"></text>
+
+    <rect class="obj" x="580" y="12" width="200" height="110" rx="8"/>
+    <text class="b" x="680" y="34" text-anchor="middle">对象存储</text>
+    <circle r="4" cx="594" cy="62" data-k="d0"/>
+    <text class="m" x="604" y="66" style="font-size: 11px">PUT …/1001_0_4194304</text>
+    <circle r="4" cx="594" cy="88" data-k="d1"/>
+    <text class="m" x="604" y="92" style="font-size: 11px">PUT …/1001_1_2097152</text>
+
+    <rect class="meta" x="580" y="146" width="200" height="88" rx="8"/>
+    <text class="b" x="680" y="168" text-anchor="middle">元数据引擎</text>
+    <text class="m" x="592" y="192" style="font-size: 11px" data-k="m1"></text>
+    <text class="m" x="592" y="214" style="font-size: 11px" data-k="m2"></text>
+
+    <rect class="box" x="20" y="150" width="140" height="62" rx="6"/>
+    <text class="b" x="90" y="172" text-anchor="middle">机器 B</text>
+    <text class="s m" x="90" y="192" text-anchor="middle" data-k="bview"></text>
+    <text class="s" x="90" y="206" text-anchor="middle" data-k="bview2"></text>
+
+    <path class="ar" d="M160 52 H198" marker-end="url(#jw-ar)" data-k="aw"/>
+    <path class="ar o" d="M520 76 H578" marker-end="url(#jw-ar-o)" data-k="ap"/>
+    <path class="ar mt" d="M520 190 H578" marker-end="url(#jw-ar-m)" data-k="am"/>
+    <path class="ar mt" d="M680 234 V262 H90 V214" marker-end="url(#jw-ar-m)" data-k="ab"/>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="s"></span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var log = root.querySelector(".log");
+      var cap = root.querySelector(".bar .s");
+      function q(k) { return root.querySelector('[data-k="' + k + '"]'); }
+
+      var steps = [
+        { btn: "write() 写入 6 MiB", app: "", f: [0, 0], d: ["", ""], m1: "c100_0 = []", m2: "length = 0",
+          aview: "", b: "stat → 0 B", stage: "", on: [], cap: "默认模式：先上传数据，再提交元数据",
+          log: [["k", "机器 A 上的进程准备往 /jfs/out.bin（inode 100）写 6 MiB。"]] },
+        { btn: "close()", app: "write ×6", f: [4, 2], d: ["p", ""], m1: "c100_0 = []", m2: "length = 0",
+          aview: "A 自己 stat 看到 6 MiB，这只是预览", b: "stat → 0 B", stage: "", on: ["aw", "ap"], cap: "",
+          log: [["", "write(fd, buf, 1MiB) = 1048576 ×6，每次几微秒就返回：数据只进了内存缓冲区"],
+                ["", "块 0 攒满 4 MiB，后台立刻开始上传；块 1 只有 2 MiB，先留在缓冲区"],
+                ["w", "此刻元数据一个字节没改，机器 B 看不到任何变化"]] },
+        { btn: "提交元数据", app: "close()…", f: [4, 2], d: ["d", "d"], m1: "c100_0 = []", m2: "length = 0",
+          aview: "close() 还在等上传结束", b: "stat → 0 B", stage: "", on: ["ap"], cap: "",
+          log: [["", "close() 触发 flush：块 1 作为 2 MiB 的尾块上传"],
+                ["ok", "两个 PUT 都返回 200 OK"],
+                ["k", "slice 1001 的数据已经安全落在对象存储里，但还没有任何元数据指向它"]] },
+        { btn: "换成 --writeback 模式", app: "close() = 0", f: [0, 0], d: ["d", "d"], m1: "c100_0 = [{id:1001, 6M}]", m2: "length = 6 MiB",
+          aview: "缓冲区已释放", b: "open → 6 MiB", stage: "", on: ["am", "ab"], cap: "",
+          log: [["", "一个元数据事务：c100_0 追加 Slice{pos:0, id:1001, size:6M}，更新 length 和 mtime"],
+                ["ok", "close() 返回 0。从这一刻起，任何机器重新 open 都能读到这 6 MiB"],
+                ["k", "上传失败就不提交：对象存储里可能多出没人引用的块，由 gc 清理，但文件永远不会指向半截数据"]] },
+        { btn: "重来", app: "close() = 0", f: [0, 0], d: ["p", "p"], m1: "c100_0 = [{id:1001, 6M}]", m2: "length = 6 MiB",
+          aview: "", b: "open → 6 MiB", b2: "读数据要等 A 上传", stage: "2 个块等待上传", on: ["am", "ab", "ap"], wb: true, cap: "--writeback：先提交元数据，再异步上传",
+          log: [["", "--writeback 模式下顺序反过来：块先写进本地盘 rawstaging/，立刻提交元数据，close() 马上返回"],
+                ["w", "B 已经能看到文件，但数据还在 A 的本地盘上；上传慢时 B 读这段数据会等待甚至超时"],
+                ["w", "上传完成前 A 的盘坏了，这 6 MiB 就永远丢了。适合解压大量小文件这类临时场景"]] }
+      ];
+      var step = 0;
+
+      function render() {
+        var s = steps[step];
+        q("app").textContent = s.app;
+        q("f0").setAttribute("width", s.f[0] / 4 * 128);
+        q("f1").setAttribute("width", s.f[1] / 4 * 128);
+        q("aview").textContent = s.aview;
+        q("bview").textContent = s.b;
+        q("bview2").textContent = s.b2 || "";
+        q("m1").textContent = s.m1;
+        q("m2").textContent = s.m2;
+        q("stagetxt").textContent = s.stage;
+        q("stage").setAttribute("class", "stage" + (s.wb ? " on" : ""));
+        ["d0", "d1"].forEach(function (k, i) {
+          var v = s.d[i];
+          q(k).setAttribute("class", v);
+          q(k).setAttribute("fill", v ? "" : "#d4d4d8");
+        });
+        ["aw", "ap", "am", "ab"].forEach(function (k) {
+          var c = q(k).getAttribute("class").replace(/ off/g, "");
+          q(k).setAttribute("class", c + (s.on.indexOf(k) >= 0 ? "" : " off"));
+        });
+        if (s.cap) cap.textContent = s.cap;
+        btn.textContent = s.btn;
+        log.innerHTML = "";
+        s.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      render();
+    })();
+  </script>
+</div>

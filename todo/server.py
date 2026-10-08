@@ -4,7 +4,7 @@
     python todo/server.py            # http://127.0.0.1:9521
     python todo/server.py --test-mail  # 立即发送一次未完成事项邮件
 
-每天北京时间 18:00 若有未完成事项，通过 e2me 发送邮件给自己。
+每天北京时间 18:00 若有未完成事项（暂缓的除外），通过 e2me 发送邮件给自己。
 e2me 凭据读取顺序：环境变量 E2ME_EMAIL/E2ME_PASSWD > todo/e2me.toml > e2me 全局配置。
 """
 
@@ -67,7 +67,7 @@ def save_todos(todos: list) -> None:
 
 def send_pending_mail() -> tuple[bool, str]:
     with lock:
-        pending = [t for t in load_todos() if not t.get("done")]
+        pending = [t for t in load_todos() if not t.get("done") and not t.get("paused")]
     pending.sort(key=lambda t: not t.get("starred"))
     if not pending:
         return False, "没有未完成的待办事项"
@@ -239,6 +239,8 @@ class Handler(BaseHTTPRequestHandler):
                 todo["done"] = bool(data["done"])
             if "starred" in data:
                 todo["starred"] = bool(data["starred"])
+            if "paused" in data:
+                todo["paused"] = bool(data["paused"])
             todo["updated_at"] = now_bj().isoformat(timespec="seconds")
             save_todos(todos)
         self.send_json(todo)

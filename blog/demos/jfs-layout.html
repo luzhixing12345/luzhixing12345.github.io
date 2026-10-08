@@ -1,0 +1,188 @@
+<div class="jfs-layout-demo">
+  <style>
+    .jfs-layout-demo {
+      --jl-fg: var(--fg, #09090b);
+      --jl-muted: var(--muted, #71717a);
+      --jl-line: var(--line, #e4e4e7);
+      --jl-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--jl-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--jl-fg);
+    }
+    .jfs-layout-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--jl-soft); }
+    .jfs-layout-demo text { font-size: 12px; fill: var(--jl-fg); }
+    .jfs-layout-demo .s { font-size: 11px; fill: var(--jl-muted); }
+    .jfs-layout-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .jfs-layout-demo .file { fill: #fff; stroke: var(--jl-fg); stroke-width: 1.2; }
+    .jfs-layout-demo .div { stroke: var(--jl-fg); stroke-width: 1.2; stroke-dasharray: 3 3; }
+    .jfs-layout-demo .blk { stroke-width: 1; transition: opacity .3s; }
+    .jfs-layout-demo .c-base { fill: #fff; stroke: #52525b; }
+    .jfs-layout-demo .c-b { fill: #dbeafe; stroke: #2563eb; }
+    .jfs-layout-demo .c-a { fill: #fde68a; stroke: #d97706; }
+    .jfs-layout-demo .c-g { fill: #dcfce7; stroke: #16a34a; }
+    .jfs-layout-demo .hid { opacity: .35; }
+    .jfs-layout-demo .seg { stroke: var(--jl-fg); stroke-width: 1; }
+    .jfs-layout-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--jl-line);
+    }
+    .jfs-layout-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--jl-fg); border-radius: 6px; background: var(--jl-fg); color: #fff;
+    }
+    .jfs-layout-demo .bar .s { font-size: 12px; color: var(--jl-muted); }
+    .jfs-layout-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 6.4em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .jfs-layout-demo .log .k { color: #a1a1aa; }
+    .jfs-layout-demo .log .w { color: #fbbf24; }
+    .jfs-layout-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .jfs-layout-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 300" role="img" aria-label="JuiceFS 文件布局演示：160 MiB 文件切成 3 个 64 MiB 的 chunk，每次写入成为一个 slice，slice 再切成 4 MiB 的块存进对象存储；覆盖写追加新 slice，读取时后写的 slice 遮住先写的，后台压实把碎片合成一个 slice">
+    <g class="dyn"></g>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="s"></span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var dyn = root.querySelector(".dyn");
+      var btn = root.querySelector("button");
+      var log = root.querySelector(".log");
+      var NS = "http://www.w3.org/2000/svg";
+      var X0 = 110, PX = 650 / 160, CH = 64;
+      var LAYER_Y = [176, 146, 116], ROW_H = 22, VIEW_Y = 226;
+
+      var base = [
+        { id: 1, ch: 0, pos: 0, len: 64, layer: 0, c: "base" },
+        { id: 2, ch: 1, pos: 0, len: 64, layer: 0, c: "base" },
+        { id: 3, ch: 2, pos: 0, len: 32, layer: 0, c: "base" }
+      ];
+      var s4 = { id: 4, ch: 0, pos: 20, len: 16, layer: 1, c: "b" };
+      var s5 = { id: 5, ch: 0, pos: 30, len: 10, layer: 2, c: "a" };
+      var s6 = { id: 6, ch: 0, pos: 0, len: 64, layer: 0, c: "g" };
+
+      var steps = [
+        { btn: "顺序写入 160 MiB", slices: [], size: 0, objs: 0,
+          log: [["k", "inode 100 是一个空文件。点按钮顺序写入 160 MiB。"]] },
+        { btn: "在 20 MiB 处覆盖写 16 MiB", slices: base, size: 160, objs: 40,
+          log: [["", "160 MiB 按 64 MiB 切成 3 个 chunk；顺序写时每个 chunk 只有一个 slice"],
+                ["k", "PUT myjfs/chunks/0/0/1_0_4194304 … 1_15_4194304   # slice 1，16 块"],
+                ["k", "PUT myjfs/chunks/0/0/2_0_4194304 … 2_15_4194304   # slice 2，16 块"],
+                ["k", "PUT myjfs/chunks/0/0/3_0_4194304 … 3_7_4194304    # slice 3，8 块"],
+                ["", "元数据：c100_0 = [{pos:0, id:1, size:64M}]，c100_1、c100_2 同理"]] },
+        { btn: "在 30 MiB 处再写 10 MiB", slices: base.concat([s4]), size: 160, objs: 44,
+          log: [["", "覆盖写不去改旧对象：新数据成为 slice 4，切成 4 块上传"],
+                ["k", "PUT myjfs/chunks/0/0/4_0_4194304 … 4_3_4194304"],
+                ["", "元数据：c100_0 追加一条 {pos:20M, id:4, size:16M}，编码后 24 字节"],
+                ["w", "1_5 … 1_8 仍然躺在桶里，只是被 slice 4 遮住了"]] },
+        { btn: "后台压实 chunk 0", slices: base.concat([s4, s5]), size: 160, objs: 47,
+          log: [["", "slice 5 从 30 MiB 开始，长 10 MiB：两个整块加一个 2 MiB 的尾块"],
+                ["k", "PUT …/5_0_4194304  …/5_1_4194304  …/5_2_2097152"],
+                ["", "读 chunk 0 时要把 3 层 slice 从上往下叠，算出每一段该读哪个对象的哪一截"],
+                ["w", "slice 越多，读得越慢、元数据越大，这就是 JuiceFS 说的文件碎片"]] },
+        { btn: "重来", slices: [s6, base[1], base[2]], size: 160, objs: 40,
+          log: [["", "客户端发现碎片后在后台压实：读出 chunk 0 的最新视图，写成新的 slice 6"],
+                ["k", "PUT …/6_0_4194304 … 6_15_4194304；一个事务把 c100_0 换成 [{pos:0, id:6, size:64M}]"],
+                ["ok", "slice 1、4、5 引用计数归零，23 个旧对象进入待删除队列（开着回收站时到期再删）"]] }
+      ];
+      var step = 0;
+
+      function el(tag, attrs, text) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        if (text != null) n.textContent = text;
+        dyn.appendChild(n);
+        return n;
+      }
+      function x(mib) { return X0 + mib * PX; }
+
+      function winner(slices, mib) {
+        var w = null;
+        slices.forEach(function (s) {
+          var a = s.ch * CH + s.pos;
+          if (mib >= a && mib < a + s.len && (!w || s.layer > w.layer)) w = s;
+        });
+        return w;
+      }
+
+      function render() {
+        var st = steps[step];
+        while (dyn.firstChild) dyn.removeChild(dyn.firstChild);
+
+        el("text", { x: 16, y: 39 }, "文件");
+        el("text", { x: 16, y: 54, "class": "s m" }, "inode 100");
+        el("rect", { x: X0, y: 24, width: 650, height: 30, rx: 3, "class": "file" });
+        if (st.size) {
+          el("rect", { x: X0, y: 24, width: st.size * PX, height: 30, rx: 3, fill: "#e4e4e7" });
+          el("text", { x: x(80), y: 44, "text-anchor": "middle" }, st.size + " MiB");
+        } else {
+          el("text", { x: x(80), y: 44, "text-anchor": "middle", "class": "s" }, "空文件");
+        }
+        [0, 1, 2].forEach(function (c) {
+          var a = c * CH, b = Math.min(a + CH, 160);
+          if (c > 0) el("line", { x1: x(a), y1: 20, x2: x(a), y2: 252, "class": "div" });
+          el("text", { x: x((a + b) / 2), y: 74, "text-anchor": "middle" }, "chunk " + c);
+          el("text", { x: x((a + b) / 2), y: 90, "text-anchor": "middle", "class": "s m" }, "c100_" + c);
+        });
+
+        el("text", { x: 16, y: 131 }, "slice");
+        el("text", { x: 16, y: 147, "class": "s" }, "后写的在上");
+        el("text", { x: 16, y: 163, "class": "s" }, "每格一个对象");
+
+        st.slices.forEach(function (s) {
+          var start = s.ch * CH + s.pos, y = LAYER_Y[s.layer];
+          for (var off = 0, i = 0; off < s.len; off += 4, i++) {
+            var w = Math.min(4, s.len - off);
+            var hidden = winner(st.slices, start + off) !== s;
+            el("rect", { x: x(start + off), y: y, width: w * PX, height: ROW_H,
+              "class": "blk c-" + s.c + (hidden ? " hid" : "") });
+          }
+          el("text", { x: x(start) + 3, y: y - 3, "class": "s m" }, "slice " + s.id);
+        });
+
+        el("text", { x: 16, y: VIEW_Y + 15 }, "读到的");
+        if (st.size) {
+          var mib = 0;
+          while (mib < st.size) {
+            var w = winner(st.slices, mib), end = mib;
+            while (end < st.size && winner(st.slices, end) === w) end++;
+            el("rect", { x: x(mib), y: VIEW_Y, width: (end - mib) * PX, height: ROW_H, "class": "seg c-" + w.c });
+            if ((end - mib) * PX > 26) el("text", { x: x((mib + end) / 2), y: VIEW_Y + 15, "text-anchor": "middle", "class": "s m" }, "#" + w.id);
+            mib = end;
+          }
+        }
+
+        var n0 = st.slices.filter(function (s) { return s.ch === 0; }).length;
+        el("text", { x: X0, y: 284, "class": "s" },
+          st.size ? "桶里共 " + st.objs + " 个对象 · chunk 0 有 " + n0 + " 个 slice · 一个 slice 最多 16 块、每块最大 4 MiB" : "桶里还没有对象");
+
+        btn.textContent = st.btn;
+        log.innerHTML = "";
+        st.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      root.querySelector(".bar .s").textContent = "半透明的块已被后写的 slice 遮住，但对象还在桶里";
+      render();
+    })();
+  </script>
+</div>

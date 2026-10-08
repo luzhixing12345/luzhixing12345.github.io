@@ -1,0 +1,178 @@
+<div class="xnode-memory-demo">
+  <style>
+    .xnode-memory-demo {
+      --xm-fg: var(--fg, #09090b);
+      --xm-muted: var(--muted, #71717a);
+      --xm-line: var(--line, #e4e4e7);
+      --xm-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--xm-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--xm-fg);
+    }
+    .xnode-memory-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--xm-soft); }
+    .xnode-memory-demo text { font-size: 12px; fill: var(--xm-fg); }
+    .xnode-memory-demo .s { font-size: 11px; fill: var(--xm-muted); }
+    .xnode-memory-demo .b { font-weight: 600; }
+    .xnode-memory-demo .ly { fill: #fff; stroke: var(--xm-fg); stroke-width: 1.1; transition: fill .3s, stroke .3s; }
+    .xnode-memory-demo .ly.c { fill: #fffbeb; stroke: #d97706; }
+    .xnode-memory-demo .ly.r { fill: #eff6ff; stroke: #2563eb; }
+    .xnode-memory-demo .num { font-size: 11px; font-weight: 600; fill: var(--xm-muted); }
+    .xnode-memory-demo .ar { stroke: var(--xm-muted); stroke-width: 1.2; }
+    .xnode-memory-demo .pan { fill: #fff; stroke: var(--xm-line); }
+    .xnode-memory-demo .yes { fill: #16a34a; }
+    .xnode-memory-demo .no { fill: #d97706; }
+    .xnode-memory-demo .tabs {
+      display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px;
+      border-top: 1px solid var(--xm-line);
+    }
+    .xnode-memory-demo .tabs button {
+      font: inherit; font-size: 12.5px; padding: 4px 10px; cursor: pointer;
+      border: 1px solid var(--xm-line); border-radius: 6px; background: #fff; color: var(--xm-fg);
+    }
+    .xnode-memory-demo .tabs button[aria-pressed="true"] { background: var(--xm-fg); color: #fff; border-color: var(--xm-fg); }
+    .xnode-memory-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--xm-muted); border-top: 1px solid var(--xm-line);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .xnode-memory-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 320" role="img" aria-label="一次客户机缺页在五种内存后端下各经过哪些层：本机 XFS 文件映射、E2B 的 userfaultfd、AgentENV 的 ublk 块设备、CubeS3lvol 的 NVMe-oF 块设备、JuiceFS 上的 FUSE 文件">
+    <g data-k="stack"></g>
+    <rect class="pan" x="530" y="16" width="250" height="288" rx="8"/>
+    <text class="b" x="546" y="40">多台 VM 共享页缓存</text>
+    <circle r="5" cx="551" cy="58" data-k="d1"/>
+    <text x="562" y="62" data-k="p1"></text>
+    <text class="s" x="546" y="80" data-k="p1b"></text>
+    <text class="b" x="546" y="118">供数进程退出时</text>
+    <text x="546" y="140" data-k="p2"></text>
+    <text class="s" x="546" y="158" data-k="p2b"></text>
+    <text class="b" x="546" y="196">一次远端未命中</text>
+    <text x="546" y="218" data-k="p3"></text>
+    <text class="s" x="546" y="236" data-k="p3b"></text>
+    <text class="b" x="546" y="272">谁在用</text>
+    <text class="s" x="546" y="292" data-k="who"></text>
+  </svg>
+  <div class="tabs" role="group" aria-label="内存后端"></div>
+  <p class="cap" data-k="cap"></p>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var tabs = root.querySelector(".tabs");
+      var G = root.querySelector('[data-k="stack"]');
+      var NS = "http://www.w3.org/2000/svg";
+      function q(k) { return root.querySelector('[data-k="' + k + '"]'); }
+
+      // layer: [title, sub, kind]  kind: "" 普通, "c" 缓存, "r" 远端
+      var T = [
+        { tab: "本机 XFS 文件",
+          L: [["客户机访问一页，EPT 缺页退出", "KVM 交给宿主机处理", ""],
+              ["VMM 的 MAP_PRIVATE 文件映射", "tpl-…-memory 或快照内存文件", ""],
+              ["宿主机页缓存", "同一模板的多台 VM 共用同一批页", "c"],
+              ["XFS 读本地 NVMe", "reflink 共享 extent", ""],
+              ["没有远端", "数据就在这台机器上", ""]],
+          share: [true, "是", "写过的页才变成 VM 私有匿名页"],
+          die: ["没有额外的供数进程", "只依赖内核和本地盘"],
+          miss: ["不会发生", "本地盘读一次，百微秒量级"],
+          who: "Cube xfs 后端、Firecracker File 后端",
+          cap: "CubeSandbox 同机创建、恢复走的就是这条：虚拟机以 MAP_PRIVATE 打开模板或快照的内存文件，客户机写到的页才复制成私有匿名页（见本站《CubeSandbox 存储篇》）。代价是内存文件必须在本机。" },
+        { tab: "userfaultfd",
+          L: [["客户机访问一页，EPT 缺页退出", "", ""],
+              ["匿名内存登记在 userfaultfd", "内核把缺页事件交给用户态", ""],
+              ["UFFD 处理器查本地 chunk 缓存", "orchestrator 进程里", "c"],
+              ["未命中：源节点 P2P 或 GCS / S3", "一次取 4 MiB chunk", "r"],
+              ["UFFDIO_COPY 把页拷进这台 VM", "之后不再经过处理器", ""]],
+          share: [false, "否", "每台 VM 各拷一份，由处理器自己去重"],
+          die: ["VM 卡在缺页上", "处理器必须和 VM 活得一样久"],
+          miss: ["对象存储往返，几十毫秒", "靠预取映射提前拉热页"],
+          who: "E2B、CodeSandbox；Lambda 计划迁移",
+          cap: "userfaultfd 让供数逻辑完全在用户态：从哪取、取多大、要不要预取都由自己定，也容易做跨节点 P2P。代价是页不进页缓存，同一份快照起的多台 VM 不能直接共享干净页。" },
+        { tab: "ublk 块设备",
+          L: [["客户机访问一页，EPT 缺页退出", "", ""],
+              ["Firecracker MAP_PRIVATE 映射设备", "内存后端是一个只读 ublk 设备", ""],
+              ["块设备页缓存", "同一快照的多台 VM 共用", "c"],
+              ["uvm-ublk-daemon 查 OverlayBD 层", "本地层文件、remote_blocks 缓存", "c"],
+              ["未命中：OSS / 共享文件系统 / P2P", "发布时可 lz4 压缩", "r"]],
+          share: [true, "是", "引用计数管理同一个内存设备"],
+          die: ["设备 I/O 出错", "守护进程是长期进程，设备池常驻"],
+          miss: ["远端往返", "可选 startup pack 并发预取首触页"],
+          who: "Kimi AgentENV",
+          cap: "AgentENV 把内存快照也做成 OverlayBD 层，经 ublk 变成块设备交给 Firecracker。这样内存和磁盘共用一套层格式、一个守护进程，并保留了页缓存共享。" },
+        { tab: "NVMe-oF 块设备",
+          L: [["客户机访问一页，EPT 缺页退出", "", ""],
+              ["CubeHypervisor 映射 /dev/nvmeXnY", "file:///dev/nvme… 作为内存 URL", ""],
+              ["块设备页缓存", "跨机导入的是这台沙箱私有的卷", "c"],
+              ["nvme-tcp 回环 → s3lvol_tgt", "SPDK 进程，本地 WAL 与 chunk cache", "c"],
+              ["未命中：esnap 读穿到导出", "S3 上 1 MiB 一个对象", "r"]],
+          share: [false, "基本不共享", "同机恢复也先把内存克隆成私有 lvol"],
+          die: ["NVMe 命名空间 I/O 停住", "升级要走专门的热重启脚本"],
+          miss: ["经 SPDK 回源 S3", "后台 decouple 把剩余数据拷完"],
+          who: "CubeSandbox s3 后端（CubeS3lvol）",
+          cap: "这是 CubeSandbox 现在的 s3 后端。导入本身只取 manifest，是惰性的；但每一页都要穿过 nvme-tcp 回环和 SPDK，同机恢复还要先克隆一份私有内存卷（Cubelet/storage/local.go 的 pauseResumeClonesLiveMemory）。" },
+        { tab: "JuiceFS 上的文件",
+          L: [["客户机访问一页，EPT 缺页退出", "", ""],
+              ["VMM 的 MAP_PRIVATE 文件映射", "/data/cubelet/jfs/…/memory", ""],
+              ["宿主机页缓存 + FUSE 预读", "同一份包的多台 VM 共用", "c"],
+              ["juicefs 客户端", "读缓冲 → 本地缓存盘（NVMe）", "c"],
+              ["未命中：对象存储 GET 一个块", "4 MiB 块，元数据引擎给出 slice", "r"]],
+          share: [true, "是", "和本机 XFS 文件完全一样的语义"],
+          die: ["未缓存的页读出错", "靠平滑升级、预取或提前水化规避"],
+          miss: ["对象存储往返，几十毫秒", "warmup 预取 + 记录首触页"],
+          who: "Modal（自研 FUSE）；本文给 Cube 的方案",
+          cap: "对 VMM 来说这就是一个普通文件，代码不用改；页缓存共享、MAP_PRIVATE 写时复制都和 XFS 上一样。新增的依赖是 juicefs 进程和元数据引擎。" }
+      ];
+      var cur = 0;
+
+      function el(tag, a, txt) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in a) n.setAttribute(k, a[k]);
+        if (txt != null) n.textContent = txt;
+        G.appendChild(n);
+        return n;
+      }
+
+      function show(i) {
+        cur = i;
+        var t = T[i];
+        while (G.firstChild) G.removeChild(G.firstChild);
+        t.L.forEach(function (l, j) {
+          var y = 16 + j * 58;
+          el("rect", { x: 20, y: y, width: 490, height: 46, rx: 6, "class": "ly" + (l[2] ? " " + l[2] : "") });
+          el("text", { x: 34, y: y + 28, "class": "num" }, String(j + 1));
+          el("text", { x: 54, y: y + 20 }, l[0]);
+          el("text", { x: 54, y: y + 37, "class": "s" }, l[1]);
+          if (j > 0) el("line", { x1: 265, y1: y - 12, x2: 265, y2: y, "class": "ar" });
+        });
+        q("d1").setAttribute("class", t.share[0] ? "yes" : "no");
+        q("p1").textContent = t.share[1];
+        q("p1b").textContent = t.share[2];
+        q("p2").textContent = t.die[0];
+        q("p2b").textContent = t.die[1];
+        q("p3").textContent = t.miss[0];
+        q("p3b").textContent = t.miss[1];
+        q("who").textContent = t.who;
+        q("cap").textContent = t.cap;
+        tabs.querySelectorAll("button").forEach(function (b, j) {
+          b.setAttribute("aria-pressed", j === i ? "true" : "false");
+        });
+      }
+
+      T.forEach(function (t, i) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = t.tab;
+        b.addEventListener("click", function () { show(i); });
+        tabs.appendChild(b);
+      });
+      svg.addEventListener("click", function () { show((cur + 1) % T.length); });
+      show(0);
+    })();
+  </script>
+</div>

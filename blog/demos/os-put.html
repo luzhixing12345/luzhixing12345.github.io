@@ -1,0 +1,247 @@
+<div class="os-put-demo">
+  <style>
+    .os-put-demo {
+      --op-fg: var(--fg, #09090b);
+      --op-muted: var(--muted, #71717a);
+      --op-line: var(--line, #e4e4e7);
+      --op-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--op-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--op-fg);
+    }
+    .os-put-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; }
+    .os-put-demo text { font-size: 12px; fill: var(--op-fg); }
+    .os-put-demo .s { font-size: 11px; fill: var(--op-muted); }
+    .os-put-demo .b { font-weight: 600; }
+    .os-put-demo .m { font-family: var(--mono, ui-monospace, monospace); }
+    .os-put-demo .zl { font-size: 12px; font-weight: 600; fill: var(--op-muted); }
+    .os-put-demo .zone { fill: var(--op-soft); stroke: var(--op-line); transition: fill .3s, stroke .3s; }
+    .os-put-demo .box { fill: #fff; stroke: var(--op-fg); stroke-width: 1.2; transition: fill .3s, stroke .3s; }
+    .os-put-demo .az { fill: #fff; stroke: var(--op-line); }
+    .os-put-demo .disk { fill: #fff; stroke: #a1a1aa; transition: fill .3s, stroke .3s; }
+    .os-put-demo .hl { fill: #fffbeb; stroke: #d97706; stroke-width: 1.6; }
+    .os-put-demo .zone.hl { fill: #fffbeb; }
+    .os-put-demo .done { fill: #dcfce7; stroke: #16a34a; stroke-width: 1.6; }
+    .os-put-demo .ln { fill: none; stroke: var(--op-fg); stroke-width: 1.3; transition: opacity .3s; }
+    .os-put-demo .data { fill: none; stroke: #2563eb; stroke-width: 1.4; stroke-dasharray: 5 4; transition: opacity .3s; }
+    .os-put-demo .sh { transition: opacity .35s; }
+    .os-put-demo .sh rect { stroke-width: 1; }
+    .os-put-demo .sh.d rect { fill: #dbeafe; stroke: #2563eb; }
+    .os-put-demo .sh.p rect { fill: #fde68a; stroke: #d97706; }
+    .os-put-demo .sh text { font-size: 10px; }
+    .os-put-demo [data-from], .os-put-demo [data-only] { opacity: 0; }
+    .os-put-demo .vis { opacity: 1 !important; }
+    .os-put-demo .vis.dim { opacity: .3 !important; }
+    .os-put-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--op-line); font-size: 12px; color: var(--op-muted);
+    }
+    .os-put-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--op-fg); border-radius: 6px; background: var(--op-fg); color: #fff;
+    }
+    .os-put-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 6.4em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .os-put-demo .log .k { color: #a1a1aa; }
+    .os-put-demo .log .w { color: #fbbf24; }
+    .os-put-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .os-put-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 430" role="img" aria-label="一次 PUT 穿过对象存储四层：DNS 解析、无状态接入层验签并做纠删码、存储层把 9 个分片写到三个可用区的盘上、元数据层提交记录，之后后台持续巡检修复">
+    <defs>
+      <marker id="op-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+      <marker id="op-ar-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#2563eb"/>
+      </marker>
+    </defs>
+
+    <rect class="box" data-hl="1" x="40" y="12" width="170" height="42" rx="6"/>
+    <text class="b" x="125" y="30" text-anchor="middle">DNS</text>
+    <text class="s m" x="125" y="46" text-anchor="middle">my-bucket.s3.…</text>
+
+    <rect class="box" data-hl="0" x="300" y="12" width="220" height="42" rx="6"/>
+    <text class="b" x="410" y="30" text-anchor="middle">客户端 / SDK</text>
+    <text class="s m" x="410" y="46" text-anchor="middle">PUT /photos/2026/a.jpg</text>
+
+    <path class="ln" data-from="1" d="M300 33 H212" marker-end="url(#op-ar)"/>
+    <text class="s" data-from="1" x="256" y="27" text-anchor="middle">①</text>
+    <path class="ln" data-from="2" d="M360 54 V68 H100 V91" marker-end="url(#op-ar)"/>
+    <text class="s" data-from="2" x="230" y="64" text-anchor="middle">② HTTPS + SigV4 签名</text>
+
+    <rect class="zone" data-hl="2,3" x="20" y="76" width="760" height="100" rx="8"/>
+    <text class="zl" x="770" y="94" text-anchor="end">接入层（无状态，任何一台都能接任何桶）</text>
+    <rect class="box" data-hl="2,3" x="40" y="92" width="120" height="36" rx="6"/>
+    <text x="100" y="109" text-anchor="middle">前端 A</text>
+    <text class="s" x="100" y="122" text-anchor="middle">验签 · 鉴权 · 编码</text>
+    <rect class="box" x="190" y="100" width="100" height="28" rx="6"/>
+    <text class="s" x="240" y="118" text-anchor="middle">前端 B</text>
+    <rect class="box" x="310" y="100" width="100" height="28" rx="6"/>
+    <text class="s" x="360" y="118" text-anchor="middle">前端 C</text>
+    <rect class="box" x="430" y="100" width="100" height="28" rx="6"/>
+    <text class="s" x="480" y="118" text-anchor="middle">前端 D</text>
+    <text class="s" x="560" y="118">… 数千台</text>
+
+    <path class="ln" data-from="3" d="M130 128 V150 H186" marker-end="url(#op-ar)"/>
+    <g class="row"></g>
+    <text class="s" data-from="3" x="470" y="155">③ 切成 5 个数据片 + 算出 4 个校验片</text>
+
+    <rect class="zone" data-hl="5" x="20" y="196" width="252" height="160" rx="8"/>
+    <text class="zl" x="32" y="214">元数据层（按键范围分区）</text>
+    <g class="parts"></g>
+    <text class="s m" data-from="5" x="32" y="322">photos/2026/a.jpg → 新版本</text>
+    <text class="s m" data-from="5" x="32" y="338">482 KB · ETag · 9 片的位置</text>
+    <path class="ln" data-from="5" d="M70 128 V195" marker-end="url(#op-ar)"/>
+    <text class="s" data-from="5" x="76" y="188">⑤ 提交</text>
+
+    <rect class="zone" data-hl="4" x="290" y="196" width="490" height="160" rx="8"/>
+    <text class="zl" x="302" y="214">存储层（数百万块盘）</text>
+    <g class="azs"></g>
+    <path class="data" data-from="4" d="M330 162 V219" marker-end="url(#op-ar-b)"/>
+    <text class="s" data-from="4" x="338" y="190">④ 写分片</text>
+
+    <rect class="zone" data-hl="6" x="20" y="372" width="760" height="46" rx="8"/>
+    <text class="zl" x="32" y="400">后台</text>
+    <g class="bg"></g>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="tip"></span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var tip = root.querySelector(".tip");
+      var log = root.querySelector(".log");
+      var NS = "http://www.w3.org/2000/svg";
+
+      function el(parent, tag, attrs, text) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        if (text != null) n.textContent = text;
+        parent.appendChild(n);
+        return n;
+      }
+
+      var NAMES = ["d1", "d2", "d3", "d4", "d5", "p1", "p2", "p3", "p4"];
+      var row = root.querySelector(".row");
+      NAMES.forEach(function (n, i) {
+        var g = el(row, "g", { "class": "sh " + n[0], "data-from": "3", "data-dim": "4" });
+        el(g, "rect", { x: 190 + i * 30, y: 139, width: 26, height: 22, rx: 3 });
+        el(g, "text", { x: 203 + i * 30, y: 154, "text-anchor": "middle", "class": "m" }, n);
+      });
+
+      var parts = root.querySelector(".parts");
+      ["[a, f)", "[f, m)", "[m, s)", "[s, ∞)"].forEach(function (r, i) {
+        var y = 224 + i * 22;
+        el(parts, "rect", { x: 32, y: y, width: 228, height: 18, rx: 4, "class": "box", "data-hl": i === 2 ? "5" : "" });
+        el(parts, "text", { x: 42, y: y + 13, "class": "s m" }, "分区 " + r);
+        el(parts, "text", { x: 250, y: y + 13, "text-anchor": "end", "class": "s" }, i === 2 ? "photos/… 落在这里" : "多副本 · 一致性协议");
+      });
+
+      var PLACE = [[0, 2, 4], [1, 3, 5], [0, 4, 5]];
+      var azs = root.querySelector(".azs");
+      ["可用区 a", "可用区 b", "可用区 c"].forEach(function (name, a) {
+        var x0 = 302 + a * 158;
+        el(azs, "rect", { x: x0, y: 222, width: 150, height: 124, rx: 6, "class": "az" });
+        el(azs, "text", { x: x0 + 8, y: 238, "class": "s" }, name);
+        for (var j = 0; j < 6; j++) {
+          var dx = x0 + 9 + (j % 3) * 46, dy = 246 + Math.floor(j / 3) * 50;
+          var k = PLACE[a].indexOf(j);
+          el(azs, "rect", { x: dx, y: dy, width: 40, height: 44, rx: 5, "class": "disk", "data-hl": k >= 0 ? "4" : "" });
+          el(azs, "text", { x: dx + 20, y: dy + 40, "text-anchor": "middle", "class": "s" }, "盘");
+          if (k >= 0) {
+            var n = NAMES[a * 3 + k];
+            var g = el(azs, "g", { "class": "sh " + n[0], "data-from": "4" });
+            el(g, "rect", { x: dx + 7, y: dy + 7, width: 26, height: 20, rx: 3 });
+            el(g, "text", { x: dx + 20, y: dy + 21, "text-anchor": "middle", "class": "m" }, n);
+          }
+        }
+      });
+
+      var bg = root.querySelector(".bg");
+      ["巡检校验", "修复", "均衡", "生命周期", "跨区域复制", "空间回收"].forEach(function (t, i) {
+        var x = 90 + i * 112;
+        el(bg, "rect", { x: x, y: 382, width: 100, height: 26, rx: 13, "class": "box", "data-hl": "6" });
+        el(bg, "text", { x: x + 50, y: 399, "text-anchor": "middle", "class": "s" }, t);
+      });
+
+      var steps = [
+        { btn: "① 解析域名", tip: "客户端用自己的密钥给请求签名",
+          log: [["", "PUT /photos/2026/a.jpg HTTP/1.1"],
+                ["", "Host: my-bucket.s3.us-west-2.amazonaws.com"],
+                ["", "Authorization: AWS4-HMAC-SHA256 Credential=AKIA…/20261008/us-west-2/s3/aws4_request, SignedHeaders=…, Signature=…"],
+                ["k", "Content-Length: 482113   x-amz-checksum-crc32: …"]] },
+        { btn: "② 发给前端", tip: "桶名在域名里，DNS 可以按桶分流",
+          log: [["", "$ dig +short my-bucket.s3.us-west-2.amazonaws.com"],
+                ["", "52.218.…  52.92.…  3.5.…  52.218.…"],
+                ["k", "每次解析拿到的一组 IP 都可能不同，大客户不会全挤在同一批前端上"]] },
+        { btn: "③ 切片并编码", tip: "前端不保存任何状态",
+          log: [["", "verify SigV4: 用同一把密钥重算 HMAC，签名一致，时间在 15 分钟窗口内"],
+                ["", "authorize: 身份策略 + 桶策略 → s3:PutObject Allow"],
+                ["k", "失败或太慢时，SDK 会换一个 IP 重发，落到另一台前端"]] },
+        { btn: "④ 写入存储层", tip: "纠删码：任意 5 片就能还原",
+          log: [["", "erasure-code RS(5,4): 482113 B → 5 × ~96 KB 数据片 + 4 × ~96 KB 校验片"],
+                ["k", "开销 9/5 = 1.8 倍，可容忍任意 4 片丢失（示意参数，非 S3 公布值）"]] },
+        { btn: "⑤ 提交元数据", tip: "每个可用区 3 片，打散到不同的盘",
+          log: [["", "place d1: 随机挑两块盘 az-a/盘1(48%) 与 az-a/盘5(61%) → 选更空的盘1"],
+                ["", "…其余 8 片同理，每个可用区放 3 片，彼此不在同一块盘、同一台机器上"],
+                ["k", "存储节点：追加写入大块连续区域，更新本地索引 shard-id → offset"],
+                ["ok", "9/9 片持久化完成"]] },
+        { btn: "之后：后台", tip: "提交之后对象才对外可见",
+          log: [["", "index[m, s).put(\"photos/2026/a.jpg\", {version: 3HL4kq…, size: 482113, etag, shards: [9 个位置]})"],
+                ["ok", "HTTP/1.1 200 OK"],
+                ["ok", "ETag: \"9b2cf535f27731c974343645a3985328\"   x-amz-version-id: 3HL4kq…"],
+                ["k", "从这一刻起，任何人的 GET / HEAD / LIST 都能看到新版本"]] },
+        { btn: "重来", tip: "后台不在请求路径上，但决定数据能不能存二十年",
+          log: [["", "audit: 持续读取并校验每个分片的校验和"],
+                ["w", "repair: az-b/盘4 离线 → 读任意 5 片，重算 d5，写到别的盘，更新元数据"],
+                ["", "rebalance: 新机架上线，先迁入冷数据，让热的新写入仍能散到尽可能多的盘"],
+                ["k", "lifecycle: 30 天后转低频 · 未完成的分片上传 7 天后清理"]] }
+      ];
+      var step = 0;
+
+      function render() {
+        var s = steps[step];
+        root.querySelectorAll("[data-hl]").forEach(function (n) {
+          var on = (n.getAttribute("data-hl") || "").split(",").indexOf(String(step)) >= 0;
+          n.classList.toggle("hl", on);
+        });
+        root.querySelectorAll("[data-from]").forEach(function (n) {
+          n.classList.toggle("vis", step >= +n.getAttribute("data-from"));
+        });
+        root.querySelectorAll("[data-dim]").forEach(function (n) {
+          n.classList.toggle("dim", step >= +n.getAttribute("data-dim"));
+        });
+        root.querySelectorAll("[data-only]").forEach(function (n) {
+          n.classList.toggle("vis", step === +n.getAttribute("data-only"));
+        });
+        btn.textContent = s.btn;
+        tip.textContent = s.tip;
+        log.innerHTML = "";
+        s.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() { step = (step + 1) % steps.length; render(); }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      render();
+    })();
+  </script>
+</div>

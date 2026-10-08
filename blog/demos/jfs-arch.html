@@ -1,0 +1,129 @@
+<div class="jfs-arch-demo">
+  <style>
+    .jfs-arch-demo {
+      --ja-fg: var(--fg, #09090b);
+      --ja-muted: var(--muted, #71717a);
+      --ja-line: var(--line, #e4e4e7);
+      --ja-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--ja-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .jfs-arch-demo svg { display: block; width: 100%; height: auto; }
+    .jfs-arch-demo text { font-size: 13px; fill: var(--ja-fg); }
+    .jfs-arch-demo .s { font-size: 11px; fill: var(--ja-muted); }
+    .jfs-arch-demo .b { font-weight: 600; }
+    .jfs-arch-demo .zone { fill: var(--ja-soft); stroke: var(--ja-line); }
+    .jfs-arch-demo .zl { font-size: 12px; font-weight: 600; fill: var(--ja-muted); }
+    .jfs-arch-demo .box { fill: #fff; stroke: var(--ja-fg); stroke-width: 1.2; }
+    .jfs-arch-demo .app { fill: #fafafa; stroke: var(--ja-muted); stroke-dasharray: 5 4; }
+    .jfs-arch-demo .meta { fill: #fffbeb; stroke: #d97706; stroke-width: 1.4; }
+    .jfs-arch-demo .obj { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.4; }
+    .jfs-arch-demo .ln { fill: none; stroke: var(--ja-fg); stroke-width: 1.3; }
+    .jfs-arch-demo .lm { fill: none; stroke: #d97706; stroke-width: 1.5; }
+    .jfs-arch-demo .lo { fill: none; stroke: #2563eb; stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .jfs-arch-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--ja-muted); border-top: 1px solid var(--ja-line);
+    }
+  </style>
+
+  <svg viewBox="0 0 800 470" role="img" aria-label="JuiceFS 架构：应用通过 FUSE、Hadoop SDK、S3 网关、CSI、Python SDK、WebDAV 访问 JuiceFS 客户端；客户端把元数据事务发给元数据引擎（Redis、MySQL、TiKV 等），把 4 MiB 数据块读写到对象存储，并在本地缓存盘缓存数据块">
+    <defs>
+      <marker id="ja-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#09090b"/>
+      </marker>
+      <marker id="ja-ar-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#d97706"/>
+      </marker>
+      <marker id="ja-ar-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#2563eb"/>
+      </marker>
+    </defs>
+
+    <rect class="app" x="41" y="12" width="166" height="40" rx="6"/>
+    <text x="124" y="30" text-anchor="middle">训练、推理进程</text>
+    <text class="s" x="124" y="45" text-anchor="middle">open / read / write</text>
+    <rect class="app" x="225" y="12" width="166" height="40" rx="6"/>
+    <text x="308" y="30" text-anchor="middle">Spark、Hive、Flink</text>
+    <text class="s" x="308" y="45" text-anchor="middle">jfs://myjfs/warehouse</text>
+    <rect class="app" x="409" y="12" width="166" height="40" rx="6"/>
+    <text x="492" y="30" text-anchor="middle">AWS CLI、S3 SDK</text>
+    <text class="s" x="492" y="45" text-anchor="middle">PUT / GET</text>
+    <rect class="app" x="593" y="12" width="166" height="40" rx="6"/>
+    <text x="676" y="30" text-anchor="middle">Kubernetes Pod</text>
+    <text class="s" x="676" y="45" text-anchor="middle">PVC ReadWriteMany</text>
+
+    <rect class="zone" x="20" y="72" width="760" height="186" rx="8"/>
+    <text class="zl" x="32" y="89">JuiceFS 客户端</text>
+
+    <rect class="box" x="41" y="98" width="112" height="36" rx="6"/>
+    <text x="97" y="121" text-anchor="middle">FUSE 挂载</text>
+    <rect class="box" x="162" y="98" width="112" height="36" rx="6"/>
+    <text x="218" y="121" text-anchor="middle">Hadoop SDK</text>
+    <rect class="box" x="283" y="98" width="112" height="36" rx="6"/>
+    <text x="339" y="121" text-anchor="middle">Python SDK</text>
+    <rect class="box" x="404" y="98" width="112" height="36" rx="6"/>
+    <text x="460" y="121" text-anchor="middle">S3 网关</text>
+    <rect class="box" x="525" y="98" width="112" height="36" rx="6"/>
+    <text x="581" y="121" text-anchor="middle">WebDAV</text>
+    <rect class="box" x="646" y="98" width="112" height="36" rx="6"/>
+    <text x="702" y="121" text-anchor="middle">CSI Driver</text>
+
+    <path class="ln" d="M140 52 V97" marker-end="url(#ja-ar)"/>
+    <path class="ln" d="M308 52 V75 H218 V97" marker-end="url(#ja-ar)"/>
+    <path class="ln" d="M492 52 V75 H460 V97" marker-end="url(#ja-ar)"/>
+    <path class="ln" d="M676 52 V75 H702 V97" marker-end="url(#ja-ar)"/>
+
+    <rect class="box" x="41" y="152" width="230" height="92" rx="6"/>
+    <text class="b" x="156" y="172" text-anchor="middle">元数据客户端</text>
+    <text class="s" x="156" y="192" text-anchor="middle">inode、目录项、chunk 的增删改查</text>
+    <text class="s" x="156" y="208" text-anchor="middle">会话心跳、文件锁、配额</text>
+    <text class="s" x="156" y="224" text-anchor="middle">内核与进程内的元数据缓存</text>
+
+    <rect class="box" x="285" y="152" width="230" height="92" rx="6"/>
+    <text class="b" x="400" y="172" text-anchor="middle">VFS 读写层</text>
+    <text class="s" x="400" y="192" text-anchor="middle">按 inode 实现的 FUSE 低层接口</text>
+    <text class="s" x="400" y="208" text-anchor="middle">读写缓冲区、预读、写入合并</text>
+    <text class="s" x="400" y="224" text-anchor="middle">碎片压实、回收站清理（后台）</text>
+
+    <rect class="box" x="529" y="152" width="230" height="92" rx="6"/>
+    <text class="b" x="644" y="172" text-anchor="middle">块存储层</text>
+    <text class="s" x="644" y="192" text-anchor="middle">切 4 MiB 块、并发上传下载</text>
+    <text class="s" x="644" y="208" text-anchor="middle">压缩（LZ4 / Zstd）、加密</text>
+    <text class="s" x="644" y="224" text-anchor="middle">本地块缓存、校验</text>
+
+    <path class="ln" d="M271 198 H284" />
+    <path class="ln" d="M515 198 H528" />
+
+    <rect class="meta" x="20" y="306" width="330" height="150" rx="8"/>
+    <text class="b" x="185" y="328" text-anchor="middle">元数据引擎（任选一种数据库）</text>
+    <text class="s" x="185" y="348" text-anchor="middle">Redis / Valkey · MySQL / PostgreSQL / SQLite</text>
+    <text class="s" x="185" y="364" text-anchor="middle">TiKV / FoundationDB / etcd · BadgerDB</text>
+    <text x="185" y="392" text-anchor="middle">文件名、目录树、权限、时间戳</text>
+    <text x="185" y="412" text-anchor="middle">每个 chunk 的 slice 列表、引用计数</text>
+    <text x="185" y="432" text-anchor="middle">客户端会话、flock / fcntl 锁</text>
+
+    <rect class="box" x="370" y="340" width="110" height="82" rx="6"/>
+    <text class="b" x="425" y="364" text-anchor="middle">本地缓存</text>
+    <text class="s" x="425" y="384" text-anchor="middle">NVMe / 内存</text>
+    <text class="s" x="425" y="400" text-anchor="middle">默认 100 GiB</text>
+
+    <rect class="obj" x="500" y="306" width="280" height="150" rx="8"/>
+    <text class="b" x="640" y="328" text-anchor="middle">对象存储（一个桶）</text>
+    <text class="s" x="640" y="348" text-anchor="middle">S3 · OSS · COS · GCS · Azure · MinIO · Ceph …</text>
+    <text x="640" y="380" text-anchor="middle" style="font-family: var(--mono, ui-monospace, monospace); font-size: 12px">myjfs/chunks/0/0/1_0_4194304</text>
+    <text x="640" y="398" text-anchor="middle" style="font-family: var(--mono, ui-monospace, monospace); font-size: 12px">myjfs/chunks/0/0/1_1_4194304</text>
+    <text x="640" y="416" text-anchor="middle" style="font-family: var(--mono, ui-monospace, monospace); font-size: 12px">…</text>
+    <text class="s" x="640" y="440" text-anchor="middle">只存不可变的数据块，不存任何文件名</text>
+
+    <path class="lm" d="M156 244 V305" marker-end="url(#ja-ar-m)" marker-start="url(#ja-ar-m)"/>
+    <text class="s" x="164" y="272">事务：小、频繁、要低延迟</text>
+    <path class="lo" d="M680 244 V305" marker-end="url(#ja-ar-o)" marker-start="url(#ja-ar-o)"/>
+    <text class="s" x="672" y="272" text-anchor="end">GET / PUT 整块：大、少、要吞吐</text>
+    <path class="ln" d="M600 244 V290 H425 V339" marker-end="url(#ja-ar)" marker-start="url(#ja-ar)"/>
+  </svg>
+  <p class="cap">橙色是元数据路径，蓝色虚线是数据路径。客户端是每台机器上的一个进程（FUSE、网关）或链进应用的一个库（Hadoop SDK、Python SDK），两条路径都由它直接发起，中间没有 JuiceFS 自己的服务器：元数据引擎和对象存储都是现成的服务，客户端负责把它们拼成一个文件系统。</p>
+</div>

@@ -1,0 +1,107 @@
+<div class="os-compare-demo">
+  <style>
+    .os-compare-demo {
+      --oc-fg: var(--fg, #09090b);
+      --oc-muted: var(--muted, #71717a);
+      --oc-line: var(--line, #e4e4e7);
+      --oc-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--oc-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+    }
+    .os-compare-demo svg { display: block; width: 100%; height: auto; }
+    .os-compare-demo text { font-size: 12px; fill: var(--oc-fg); }
+    .os-compare-demo .t { font-size: 15px; font-weight: 600; }
+    .os-compare-demo .s { font-size: 11px; fill: var(--oc-muted); }
+    .os-compare-demo .m { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; }
+    .os-compare-demo .col { fill: var(--oc-soft); stroke: var(--oc-line); }
+    .os-compare-demo .api { fill: #fff; stroke: var(--oc-fg); stroke-width: 1.1; }
+    .os-compare-demo .blk { fill: #fff; stroke: #a1a1aa; }
+    .os-compare-demo .blk.u { fill: #dbeafe; stroke: #2563eb; }
+    .os-compare-demo .node { fill: #fff; stroke: var(--oc-fg); stroke-width: 1.1; }
+    .os-compare-demo .dir { fill: #fffbeb; stroke: #d97706; stroke-width: 1.1; }
+    .os-compare-demo .ln { fill: none; stroke: var(--oc-muted); stroke-width: 1.1; }
+    .os-compare-demo .bkt { fill: #fff; stroke: var(--oc-fg); stroke-width: 1.2; }
+    .os-compare-demo .obj { fill: #eff6ff; stroke: #2563eb; }
+    .os-compare-demo .meta { fill: #fffbeb; stroke: #d97706; }
+    .os-compare-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--oc-muted); border-top: 1px solid var(--oc-line);
+    }
+  </style>
+
+  <svg viewBox="0 0 800 400" role="img" aria-label="块存储、文件存储、对象存储三者对比：接口、组织方式和适用场景">
+    <!-- 块存储 -->
+    <rect class="col" x="16" y="12" width="248" height="376" rx="8"/>
+    <text class="t" x="140" y="40" text-anchor="middle">块存储</text>
+    <text class="s" x="140" y="58" text-anchor="middle">一块裸盘，只认块号</text>
+    <rect class="api" x="32" y="72" width="216" height="52" rx="6"/>
+    <text class="m" x="44" y="93">read(lba=1024, 8 块)</text>
+    <text class="m" x="44" y="112">write(lba=77, 4 KB)</text>
+    <g>
+      <rect class="blk" x="40" y="146" width="28" height="28"/><rect class="blk u" x="72" y="146" width="28" height="28"/>
+      <rect class="blk u" x="104" y="146" width="28" height="28"/><rect class="blk" x="136" y="146" width="28" height="28"/>
+      <rect class="blk" x="168" y="146" width="28" height="28"/><rect class="blk u" x="200" y="146" width="28" height="28"/>
+      <rect class="blk" x="40" y="178" width="28" height="28"/><rect class="blk" x="72" y="178" width="28" height="28"/>
+      <rect class="blk u" x="104" y="178" width="28" height="28"/><rect class="blk u" x="136" y="178" width="28" height="28"/>
+      <rect class="blk" x="168" y="178" width="28" height="28"/><rect class="blk" x="200" y="178" width="28" height="28"/>
+      <rect class="blk u" x="40" y="210" width="28" height="28"/><rect class="blk" x="72" y="210" width="28" height="28"/>
+      <rect class="blk" x="104" y="210" width="28" height="28"/><rect class="blk" x="136" y="210" width="28" height="28"/>
+      <rect class="blk u" x="168" y="210" width="28" height="28"/><rect class="blk" x="200" y="210" width="28" height="28"/>
+      <rect class="blk" x="40" y="242" width="28" height="28"/><rect class="blk u" x="72" y="242" width="28" height="28"/>
+      <rect class="blk" x="104" y="242" width="28" height="28"/><rect class="blk" x="136" y="242" width="28" height="28"/>
+      <rect class="blk" x="168" y="242" width="28" height="28"/><rect class="blk u" x="200" y="242" width="28" height="28"/>
+    </g>
+    <text class="s" x="140" y="292" text-anchor="middle">哪些块拼成一个文件，它不知道</text>
+    <text class="s" x="32" y="324">✓ 任意位置改几个字节</text>
+    <text class="s" x="32" y="342">✗ 通常只挂给一台机器</text>
+    <text x="32" y="372">适合：数据库、虚拟机系统盘</text>
+
+    <!-- 文件存储 -->
+    <rect class="col" x="276" y="12" width="248" height="376" rx="8"/>
+    <text class="t" x="400" y="40" text-anchor="middle">文件存储</text>
+    <text class="s" x="400" y="58" text-anchor="middle">一棵目录树，POSIX 语义</text>
+    <rect class="api" x="292" y="72" width="216" height="52" rx="6"/>
+    <text class="m" x="304" y="93">open / seek / write</text>
+    <text class="m" x="304" y="112">rename / flock / mkdir</text>
+    <path class="ln" d="M400 166 V178 H330 V190 M400 178 H470 V190"/>
+    <path class="ln" d="M330 212 V224 H300 V236 M330 224 H360 V236"/>
+    <path class="ln" d="M470 212 V236"/>
+    <rect class="dir" x="380" y="146" width="40" height="20" rx="4"/><text class="m" x="400" y="160" text-anchor="middle">/</text>
+    <rect class="dir" x="300" y="190" width="60" height="22" rx="4"/><text class="m" x="330" y="205" text-anchor="middle">home/</text>
+    <rect class="dir" x="440" y="190" width="60" height="22" rx="4"/><text class="m" x="470" y="205" text-anchor="middle">var/</text>
+    <rect class="node" x="282" y="236" width="40" height="22" rx="4"/><text class="m" x="302" y="251" text-anchor="middle">a.txt</text>
+    <rect class="dir" x="330" y="236" width="60" height="22" rx="4"/><text class="m" x="360" y="251" text-anchor="middle">img/</text>
+    <rect class="node" x="440" y="236" width="60" height="22" rx="4"/><text class="m" x="470" y="251" text-anchor="middle">log</text>
+    <text class="s" x="400" y="276" text-anchor="middle">每个文件一个 inode，每个目录一组目录项</text>
+    <text class="s" x="400" y="292" text-anchor="middle">改名、加锁都要改元数据</text>
+    <text class="s" x="292" y="324">✓ 随机改写、原子改名、加锁</text>
+    <text class="s" x="292" y="342">✗ 元数据难以扩展到千亿文件</text>
+    <text x="292" y="372">适合：共享目录、开发机、HPC</text>
+
+    <!-- 对象存储 -->
+    <rect class="col" x="536" y="12" width="248" height="376" rx="8"/>
+    <text class="t" x="660" y="40" text-anchor="middle">对象存储</text>
+    <text class="s" x="660" y="58" text-anchor="middle">一个桶，一堆平铺的键</text>
+    <rect class="api" x="552" y="72" width="216" height="52" rx="6"/>
+    <text class="m" x="564" y="93">PUT / GET (Range) / HEAD</text>
+    <text class="m" x="564" y="112">LIST(prefix) / DELETE</text>
+    <rect class="bkt" x="552" y="140" width="216" height="140" rx="6"/>
+    <text class="s" x="562" y="156">桶 my-bucket</text>
+    <rect class="obj" x="562" y="164" width="150" height="22" rx="3"/><rect class="meta" x="714" y="164" width="44" height="22" rx="3"/>
+    <text class="m" x="568" y="179">logs/10-08.gz</text><text class="s" x="736" y="179" text-anchor="middle">元数据</text>
+    <rect class="obj" x="562" y="192" width="150" height="22" rx="3"/><rect class="meta" x="714" y="192" width="44" height="22" rx="3"/>
+    <text class="m" x="568" y="207">photos/2026/a.jpg</text><text class="s" x="736" y="207" text-anchor="middle">元数据</text>
+    <rect class="obj" x="562" y="220" width="150" height="22" rx="3"/><rect class="meta" x="714" y="220" width="44" height="22" rx="3"/>
+    <text class="m" x="568" y="235">photos/2026/b.jpg</text><text class="s" x="736" y="235" text-anchor="middle">元数据</text>
+    <rect class="obj" x="562" y="248" width="150" height="22" rx="3"/><rect class="meta" x="714" y="248" width="44" height="22" rx="3"/>
+    <text class="m" x="568" y="263">model/v3.safetensors</text><text class="s" x="736" y="263" text-anchor="middle">元数据</text>
+    <text class="s" x="660" y="292" text-anchor="middle">“/” 只是键里的普通字符</text>
+    <text class="s" x="552" y="324">✓ 无限扩展、HTTP 直接访问、便宜</text>
+    <text class="s" x="552" y="342">✗ 不能原地改写，没有真目录</text>
+    <text x="552" y="372">适合：图片视频、备份、数据湖</text>
+  </svg>
+  <p class="cap">从左到右，存储系统替你记住的东西越来越少：块存储连文件都不认识，文件存储维护一棵树和一堆锁，对象存储只维护“键 → 数据 + 元数据”这一张平的表。承诺越少，越容易横向扩展。</p>
+</div>

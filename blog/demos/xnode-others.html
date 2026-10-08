@@ -1,0 +1,158 @@
+<div class="xnode-others-demo">
+  <style>
+    .xnode-others-demo {
+      --xo-fg: var(--fg, #09090b);
+      --xo-muted: var(--muted, #71717a);
+      --xo-line: var(--line, #e4e4e7);
+      --xo-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--xo-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--xo-fg);
+    }
+    .xnode-others-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--xo-soft); }
+    .xnode-others-demo text { font-size: 12px; fill: var(--xo-fg); }
+    .xnode-others-demo .s { font-size: 11px; fill: var(--xo-muted); }
+    .xnode-others-demo .b { font-weight: 600; }
+    .xnode-others-demo .bx { fill: #fff; stroke: var(--xo-fg); stroke-width: 1.2; }
+    .xnode-others-demo .bx.c { fill: #fffbeb; stroke: #d97706; }
+    .xnode-others-demo .bx.d { fill: #eff6ff; stroke: #2563eb; }
+    .xnode-others-demo .ar { fill: none; stroke: var(--xo-muted); stroke-width: 1.3; }
+    .xnode-others-demo .tabs {
+      display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px;
+      border-top: 1px solid var(--xo-line);
+    }
+    .xnode-others-demo .tabs button {
+      font: inherit; font-size: 12.5px; padding: 4px 10px; cursor: pointer;
+      border: 1px solid var(--xo-line); border-radius: 6px; background: #fff; color: var(--xo-fg);
+    }
+    .xnode-others-demo .tabs button[aria-pressed="true"] { background: var(--xo-fg); color: #fff; border-color: var(--xo-fg); }
+    .xnode-others-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--xo-muted); border-top: 1px solid var(--xo-line);
+    }
+  </style>
+
+  <svg viewBox="0 0 800 300" role="img" aria-label="各家沙箱跨机数据通路：从虚拟机看到的设备，到节点上的服务进程，到缓存层，再到持久存储；可切换 E2B、AgentENV、DSec、Lambda SnapStart、Modal、Fly.io Sprites">
+    <defs>
+      <marker id="xo-ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#71717a"/></marker>
+    </defs>
+    <text class="s" x="110" y="22" text-anchor="middle">沙箱看到的</text>
+    <text class="s" x="300" y="22" text-anchor="middle">节点上谁来供数</text>
+    <text class="s" x="500" y="22" text-anchor="middle">缓存层</text>
+    <text class="s" x="690" y="22" text-anchor="middle">持久存储</text>
+    <g data-k="lanes"></g>
+    <text class="b" x="20" y="268" data-k="n1"></text>
+    <text class="s" x="20" y="288" data-k="n2"></text>
+  </svg>
+  <div class="tabs" role="group" aria-label="系统"></div>
+  <p class="cap" data-k="cap"></p>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var tabs = root.querySelector(".tabs");
+      var G = root.querySelector('[data-k="lanes"]');
+      var NS = "http://www.w3.org/2000/svg";
+      function q(k) { return root.querySelector('[data-k="' + k + '"]'); }
+
+      var X = [20, 210, 400, 590], W = 180, H = 74;
+      var S = [
+        { tab: "E2B",
+          lanes: [
+            ["内存", ["Firecracker 匿名内存", "缺页走 userfaultfd"], ["orchestrator 的 UFFD 处理器", "按页 / 2 MiB 大页供数"], ["本地 chunk 缓存", "上传完成前从源节点 P2P 读"], ["GCS / S3", "memfile diff，4 MiB chunk"]],
+            ["磁盘", ["virtio-blk", "/dev/nbdX"], ["进程内 NBD 服务", "每沙箱一份 COW 缓存"], ["同上", "header 把块映射到 build"], ["GCS / S3", "rootfs diff，映射粒度 4 KiB"]]
+          ],
+          n1: "模板和暂停包是同一种制品：内存 diff + 磁盘 diff + 一张逐块映射的 header",
+          n2: "恢复优先放回源节点；跨节点时先 P2P 后对象存储，并按记录的预取映射提前拉热页",
+          cap: "来源：e2b-dev/infra 的 docs/ARCHITECTURE.md 与 orchestrator 代码（packages/orchestrator/pkg/sandbox/{uffd,nbd,block}、template/peerclient）。header 里每个块记一个 build ID，一份暂停包只存相对父层改过的块。" },
+        { tab: "Kimi AgentENV",
+          lanes: [
+            ["内存", ["Firecracker 文件后端", "MAP_PRIVATE，写时变匿名页"], ["只读 ublk 设备", "uvm-ublk-daemon 读层"], ["remote_blocks 本地缓存", "可选 iroh P2P"], ["OSS 或共享文件系统", "发布时 lz4 压缩"]],
+            ["磁盘", ["virtio-blk", "客户机里再叠 overlayfs"], ["ublk + OverlayBD", "只读层 + 一层可写层"], ["同上", "冷数据可淘汰"], ["OCI 仓库 / OSS", "posix_fs 即共享挂载"]]
+          ],
+          n1: "内存和磁盘用同一套层格式（LSMT）和同一个 ublk 守护进程",
+          n2: "快照仓库可选 oss 或 posix_fs；可选 startup pack 记录首触页，恢复时并发预取；fork 只能同机",
+          cap: "来源：kvcache-ai/AgentENV 文档 configuration/reference.md 的 [snapshot]、[snapshot.publish_compression]、[snapshot.memory_startup_pack] 和 getting-started/on-demand-loading.md；详见本站《Kimi AgentENV》一文。" },
+        { tab: "DeepSeek DSec",
+          lanes: [
+            ["容器根盘", ["overlayfs", "可写层在本地盘"], ["EROFS 只读镜像", "元数据下载到本地"], ["页缓存 + 内核预读", "把小读合成大读"], ["3FS（RDMA）", "文件数据，FUSE 访问"]],
+            ["microVM 盘", ["virtio-blk", "ext4 可写盘"], ["ublk + OverlayBD", "Rust 实现，开源在 AgentENV"], ["256 KiB 拉取", "存进本地文件做二级缓存"], ["3FS", "也可换 OSS / 仓库"]]
+          ],
+          n1: "三条原则：写留在本地，读按需且成批，尽量复用训练集群已有的 3FS",
+          n2: "活跃制品超过 130 TB、单镜像复用率低，所以不做本地预热，直接让每个节点按需从 3FS 读",
+          cap: "来源：DSec 论文（arXiv:2609.22978）第五节；详见本站《DeepSeek DSec》一文。论文没有展开内存快照的跨机路径，图里只画根盘。" },
+        { tab: "Lambda SnapStart",
+          lanes: [
+            ["内存", ["Firecracker 快照内存", "初始化后拍一次"], ["worker 上的本地 agent", "按需取 chunk"], ["L1 worker 缓存 ≈1 ms", "L2 AZ 缓存舰队，单毫秒级"], ["S3", "512 KiB chunk，加密"]],
+            ["容器镜像", ["virtio-blk", "扁平化的 ext4"], ["本地 agent", "论文时经 FUSE 暴露块设备"], ["worker 67% · AZ 32%", "一周生产数据的命中分布"], ["S3 0.06%", "内容寻址、收敛加密去重"]]
+          ],
+          n1: "快照和容器镜像共用一套分块与分级缓存：512 KiB chunk，worker 本地盘、AZ 缓存、S3 三层",
+          n2: "AZ 缓存命中中位 550 µs，回源 S3 中位 36 ms；按以前的访问记录主动预取 chunk",
+          cap: "来源：AWS Compute Blog《Under the hood: how AWS Lambda SnapStart optimizes function startup latency》与 Brooker 等《On-demand Container Loading in AWS Lambda》（USENIX ATC ’23）。论文写明打算把 FUSE 换成 userfaultfd。" },
+        { tab: "Modal",
+          lanes: [
+            ["内存", ["gVisor 恢复", "后台载入页，阻塞页优先"], ["FUSE 分布式文件服务", "pages 文件 100 MiB～10 GiB"], ["尽早把整份 pages 文件", "预读进页缓存"], ["分布式存储", "未命中时几十毫秒"]],
+            ["根文件系统", ["overlayfs", "上层在本地"], ["FUSE 懒加载镜像服务", "/usr/share/doc 这类从不读"], ["主机盘缓存", ""], ["内容寻址存储", ""]]
+          ],
+          n1: "内存快照文件和容器镜像走同一套 FUSE 文件服务，restore 拿到的是一个“文件”",
+          n2: "快照按 worker 类型（CPU 特性、驱动、运行时版本）分别制作，恢复失败自动回退到普通启动",
+          cap: "来源：Modal 博客《Memory snapshots: Checkpoint/restore for sub-second startup》（2025-01）。import torch 冷启动约 5 s，恢复 p50 约 1.05 s。" },
+        { tab: "Fly.io Sprites",
+          lanes: [
+            ["根文件系统", ["ext4", "用户看到的就是普通盘"], ["改造版 JuiceFS", "跑在 VM 的根命名空间里"], ["稀疏 100 GB NVMe", "读穿缓存，丢了无所谓"], ["S3 兼容对象存储", "不可变 chunk"]],
+            ["元数据", ["checkpoint / restore", "只挪元数据，约 300 ms"], ["重写的 SQLite 元数据后端", ""], ["本地快速存储", ""], ["Litestream 持续复制", "到对象存储"]]
+          ],
+          n1: "持久状态就是对象存储上的一个 URL：节点挂了换一台，挂上同一份元数据就行",
+          n2: "检查点只包含文件系统的可写层，不包含内存；恢复时重启内层容器",
+          cap: "来源：Fly.io 博客《The Design & Implementation of Sprites》与 Sprites 文档 Checkpoints。这是目前公开资料里最接近“把 JuiceFS 当沙箱根存储”的生产系统。" }
+      ];
+      var cur = 0;
+
+      function el(tag, a, txt) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in a) n.setAttribute(k, a[k]);
+        if (txt != null) n.textContent = txt;
+        G.appendChild(n);
+        return n;
+      }
+
+      function show(i) {
+        cur = i;
+        var s = S[i];
+        while (G.firstChild) G.removeChild(G.firstChild);
+        s.lanes.forEach(function (lane, li) {
+          var y = 36 + li * 110;
+          el("text", { x: 20, y: y + 10, "class": "b" }, lane[0]);
+          for (var c = 0; c < 4; c++) {
+            var cell = lane[c + 1];
+            var cls = "bx" + (c === 2 ? " c" : c === 3 ? " d" : "");
+            el("rect", { x: X[c], y: y + 18, width: W, height: H, rx: 6, "class": cls });
+            el("text", { x: X[c] + 10, y: y + 46 }, cell[0]);
+            el("text", { x: X[c] + 10, y: y + 68, "class": "s" }, cell[1]);
+            if (c > 0) el("path", { d: "M" + (X[c] - 2) + " " + (y + 55) + " H" + (X[c - 1] + W + 4), "class": "ar", "marker-end": "url(#xo-ar)" });
+          }
+        });
+        q("n1").textContent = s.n1;
+        q("n2").textContent = s.n2;
+        q("cap").textContent = s.cap;
+        tabs.querySelectorAll("button").forEach(function (b, j) {
+          b.setAttribute("aria-pressed", j === i ? "true" : "false");
+        });
+      }
+
+      S.forEach(function (s, i) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = s.tab;
+        b.addEventListener("click", function () { show(i); });
+        tabs.appendChild(b);
+      });
+      svg.addEventListener("click", function () { show((cur + 1) % S.length); });
+      show(0);
+    })();
+  </script>
+</div>

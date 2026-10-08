@@ -27,6 +27,14 @@
   
   <script src="../../../js/site.js"></script>
   
-  
+  <script>
+(function () {
+  var socket = new WebSocket("ws://127.0.0.1:8766");
+  socket.onmessage = function (event) {
+    if (event.data === "reload") location.reload();
+  };
+})();
+</script>
+
 </body>
 </html>

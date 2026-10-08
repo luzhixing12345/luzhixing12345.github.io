@@ -1,0 +1,120 @@
+<div class="jfs-bench-demo">
+  <style>
+    .jfs-bench-demo {
+      --jb-fg: var(--fg, #09090b);
+      --jb-muted: var(--muted, #71717a);
+      --jb-line: var(--line, #e4e4e7);
+      --jb-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--jb-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--jb-fg);
+    }
+    .jfs-bench-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; }
+    .jfs-bench-demo text { font-size: 12px; fill: var(--jb-fg); }
+    .jfs-bench-demo .s { font-size: 11px; fill: var(--jb-muted); }
+    .jfs-bench-demo .b { font-weight: 600; }
+    .jfs-bench-demo .track { fill: var(--jb-soft); }
+    .jfs-bench-demo .bv { transition: width .45s ease; }
+    .jfs-bench-demo .kv { fill: #d97706; }
+    .jfs-bench-demo .sql { fill: #2563eb; }
+    .jfs-bench-demo .raft { fill: #16a34a; }
+    .jfs-bench-demo .tabs {
+      display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px;
+      border-top: 1px solid var(--jb-line);
+    }
+    .jfs-bench-demo .tabs button {
+      font: inherit; font-size: 12.5px; padding: 4px 10px; cursor: pointer;
+      border: 1px solid var(--jb-line); border-radius: 6px; background: #fff; color: var(--jb-fg);
+    }
+    .jfs-bench-demo .tabs button[aria-pressed="true"] { background: var(--jb-fg); color: #fff; border-color: var(--jb-fg); }
+    .jfs-bench-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--jb-muted); border-top: 1px solid var(--jb-line);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .jfs-bench-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 290" role="img" aria-label="JuiceFS 官方元数据引擎测试：Redis、MySQL、PostgreSQL、TiKV、etcd、FoundationDB 在创建文件、stat、删除、lookup 延迟和大文件写带宽上的对比">
+    <text class="b" x="20" y="26" data-k="title"></text>
+    <text class="s" x="20" y="44" data-k="sub"></text>
+    <g data-k="rows"></g>
+  </svg>
+  <div class="tabs" role="group" aria-label="指标"></div>
+  <p class="cap">数据来自 JuiceFS 官方文档《元数据引擎性能测试》（JuiceFS 1.1.0-beta1，Amazon S3，c5.xlarge 客户端，c5d.xlarge 元数据节点）。橙色是 Redis，蓝色是关系型数据库，绿色是分布式 KV。Redis、MySQL、PostgreSQL 单机单副本，TiKV 和 etcd 用 Raft 存三副本，比较时要把这一点算进去。</p>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var tabs = root.querySelector(".tabs");
+      var rowsG = root.querySelector('[data-k="rows"]');
+      var NS = "http://www.w3.org/2000/svg";
+
+      var ENG = [
+        ["Redis（always）", "kv"], ["Redis（everysec）", "kv"], ["MySQL", "sql"], ["PostgreSQL", "sql"],
+        ["TiKV（三副本）", "raft"], ["etcd（三副本）", "raft"], ["FoundationDB", "raft"]
+      ];
+      var M = [
+        { tab: "创建文件", title: "mdtest 创建空文件（次/秒，越大越好）", sub: "3 台客户端共 12 个进程并发",
+          v: [5473, 9985, 1327, 4727, 4054, 1802, 2909] },
+        { tab: "stat 文件", title: "mdtest stat 文件（次/秒，越大越好）", sub: "读操作，Redis 和 PostgreSQL 远远领先",
+          v: [288951, 253219, 9136, 233148, 50433, 6277, 14939] },
+        { tab: "删除文件", title: "mdtest 删除文件（次/秒，越大越好）", sub: "写操作，everysec 少一次 fsync，快了近一倍",
+          v: [6085, 12221, 1073, 3962, 3742, 1649, 2214] },
+        { tab: "lookup 延迟", title: "单次 lookup 延迟（微秒，越小越好）", sub: "Go 基准测试，单客户端串行调用", lower: true,
+          v: [173, 178, 557, 375, 608, 1054, 1029] },
+        { tab: "大文件写带宽", title: "fio 顺序写 4 个 4 GiB 文件（MiB/s，越大越好）", sub: "大 I/O 时瓶颈在对象存储和网络，元数据引擎几乎没有影响",
+          v: [729, 737, 736, 768, 731, 738, 745], unit: " MiB/s" }
+      ];
+      var X = 160, W = 520, Y = 64, DY = 31, cur = 0, bars = [], vals = [];
+
+      function el(tag, a, txt) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in a) n.setAttribute(k, a[k]);
+        if (txt != null) n.textContent = txt;
+        rowsG.appendChild(n);
+        return n;
+      }
+      ENG.forEach(function (e, i) {
+        var y = Y + i * DY;
+        el("text", { x: 20, y: y + 15 }, e[0]);
+        el("rect", { x: X, y: y, width: W, height: 20, rx: 3, "class": "track" });
+        bars.push(el("rect", { x: X, y: y, width: 0, height: 20, rx: 3, "class": "bv " + e[1] }));
+        vals.push(el("text", { x: X + 6, y: y + 15, "class": "b" }, ""));
+      });
+
+      function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+      function show(i) {
+        cur = i;
+        var m = M[i], max = Math.max.apply(null, m.v);
+        root.querySelector('[data-k="title"]').textContent = m.title;
+        root.querySelector('[data-k="sub"]').textContent = m.sub;
+        m.v.forEach(function (v, j) {
+          var w = Math.max(2, v / max * W);
+          bars[j].setAttribute("width", w);
+          vals[j].setAttribute("x", X + w + 6);
+          vals[j].textContent = fmt(v) + (m.unit || "");
+        });
+        tabs.querySelectorAll("button").forEach(function (b, j) {
+          b.setAttribute("aria-pressed", j === i ? "true" : "false");
+        });
+      }
+
+      M.forEach(function (m, i) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = m.tab;
+        b.addEventListener("click", function () { show(i); });
+        tabs.appendChild(b);
+      });
+      svg.addEventListener("click", function () { show((cur + 1) % M.length); });
+      show(0);
+    })();
+  </script>
+</div>

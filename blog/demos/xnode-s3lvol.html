@@ -1,0 +1,99 @@
+<div class="xnode-s3lvol-demo">
+  <style>
+    .xnode-s3lvol-demo {
+      --xs-fg: var(--fg, #09090b);
+      --xs-muted: var(--muted, #71717a);
+      --xs-line: var(--line, #e4e4e7);
+      --xs-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--xs-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--xs-fg);
+    }
+    .xnode-s3lvol-demo svg { display: block; width: 100%; height: auto; background: var(--xs-soft); }
+    .xnode-s3lvol-demo text { font-size: 12px; fill: var(--xs-fg); }
+    .xnode-s3lvol-demo .s { font-size: 11px; fill: var(--xs-muted); }
+    .xnode-s3lvol-demo .b { font-weight: 600; }
+    .xnode-s3lvol-demo .m { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; }
+    .xnode-s3lvol-demo .zone { fill: #fff; stroke: var(--xs-muted); stroke-dasharray: 5 4; }
+    .xnode-s3lvol-demo .box { fill: #fff; stroke: var(--xs-fg); stroke-width: 1.2; }
+    .xnode-s3lvol-demo .hot { fill: #fffbeb; stroke: #d97706; stroke-width: 1.3; }
+    .xnode-s3lvol-demo .obj { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.3; }
+    .xnode-s3lvol-demo .ar { fill: none; stroke: var(--xs-fg); stroke-width: 1.3; }
+    .xnode-s3lvol-demo .ar.o { stroke: #2563eb; stroke-dasharray: 6 4; }
+    .xnode-s3lvol-demo .cap {
+      margin: 0; padding: 9px 14px; font-size: 12.5px; line-height: 1.6;
+      color: var(--xs-muted); border-top: 1px solid var(--xs-line);
+    }
+  </style>
+
+  <svg viewBox="0 0 800 360" role="img" aria-label="CubeSandbox 现在的 s3 后端：Cubelet 经 libcubecow 用 JSON-RPC 驱动 SPDK 进程 s3lvol_tgt，后者用本地 512 GiB WAL 镜像做日志和缓存，经 NVMe/TCP 回环把卷导出成 /dev/nvme 设备给虚拟机；数据异步刷到 S3，另一台节点用 esnap 克隆读穿到导出">
+    <defs>
+      <marker id="xs-ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#09090b"/></marker>
+      <marker id="xs-ar-o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2563eb"/></marker>
+    </defs>
+
+    <rect class="zone" x="16" y="12" width="468" height="336" rx="8"/>
+    <text class="s" x="28" y="30">节点 A</text>
+
+    <rect class="box" x="32" y="40" width="200" height="50" rx="6"/>
+    <text class="b" x="44" y="61">Cubelet</text>
+    <text class="s" x="44" y="79">storage.S3Cow · Upload / Import</text>
+
+    <rect class="box" x="32" y="110" width="200" height="50" rx="6"/>
+    <text class="b" x="44" y="131">libcubecow（kind=s3）</text>
+    <text class="s" x="44" y="149">cgo 调 C ABI，管名字索引</text>
+
+    <rect class="hot" x="32" y="182" width="436" height="88" rx="6"/>
+    <text class="b" x="44" y="203">s3lvol_tgt：SPDK + DPDK 用户态进程</text>
+    <text class="s" x="44" y="221">lvstore / blobstore，esnap 克隆，后台 decouple</text>
+    <text class="s" x="44" y="239">约 2 核 + 19 GiB 内存；x86 需要 AVX2</text>
+    <text class="m" x="44" y="258">rcow/wal_bdev.img 512 GiB 稀疏</text>
+    <text class="s" x="330" y="258">journal + WAL + cache</text>
+
+    <rect class="box" x="268" y="40" width="200" height="50" rx="6"/>
+    <text class="b" x="280" y="61">CubeHypervisor</text>
+    <text class="s" x="280" y="79">rootfs 盘、内存 URL、元数据盘</text>
+
+    <rect class="box" x="268" y="110" width="200" height="50" rx="6"/>
+    <text class="b m" x="280" y="131" style="font-size: 12px">/dev/nvmeXnY</text>
+    <text class="s" x="280" y="149">内核 nvme-tcp 回环连接</text>
+
+    <rect class="box" x="32" y="288" width="436" height="44" rx="6"/>
+    <text x="44" y="308">本地 XFS（reflink 后端仍在）</text>
+    <text class="s" x="44" y="324">基础镜像 .ext4 和内核旁路文件不进 S3 包，新节点要先拉约 1 GiB</text>
+
+    <path class="ar" d="M132 90 V108" marker-end="url(#xs-ar)"/>
+    <text class="s" x="140" y="103">JSON-RPC / UDS</text>
+    <path class="ar" d="M132 160 V180" marker-end="url(#xs-ar)"/>
+    <path class="ar" d="M368 180 V162" marker-end="url(#xs-ar)"/>
+    <text class="s" x="376" y="175">NVMe-oF/TCP</text>
+    <path class="ar" d="M368 110 V92" marker-end="url(#xs-ar)"/>
+
+    <rect class="obj" x="520" y="12" width="264" height="140" rx="8"/>
+    <text class="b" x="652" y="34" text-anchor="middle">S3 桶 cube-s3lvol</text>
+    <text class="m" x="534" y="58">chunk：1 MiB 一个对象</text>
+    <text class="m" x="534" y="80">export manifest（export_uuid）</text>
+    <text class="m" x="534" y="102">import registry · lease</text>
+    <text class="m" x="534" y="124">meta/pending-deletes.json</text>
+    <text class="s" x="534" y="144">同一时刻只能有一个 export</text>
+
+    <rect class="zone" x="520" y="196" width="264" height="152" rx="8"/>
+    <text class="s" x="532" y="214">节点 B</text>
+    <rect class="hot" x="534" y="224" width="236" height="56" rx="6"/>
+    <text class="b" x="546" y="245">自己的 s3lvol_tgt + WAL 盘</text>
+    <text class="s" x="546" y="265">rcow_import_lvol → esnap 克隆</text>
+    <rect class="box" x="534" y="292" width="236" height="44" rx="6"/>
+    <text x="546" y="312">/dev/nvmeXnY → 虚拟机</text>
+    <text class="s" x="546" y="328">running 后继续按需拉页</text>
+
+    <path class="ar o" d="M470 210 C 495 210, 495 90, 518 90" marker-end="url(#xs-ar-o)"/>
+    <text class="s" x="514" y="250" transform="rotate(-90 514 250)">异步刷写 + export</text>
+    <path class="ar o" d="M652 222 V154" marker-end="url(#xs-ar-o)"/>
+    <text class="s" x="660" y="172">读穿 + 每 20 s 续租</text>
+    <text class="s" x="660" y="188">后台 decouple 拷完</text>
+  </svg>
+  <p class="cap">整理自 CubeSandbox 仓库的 CubeS3lvol/README.md、cubecow/docs/s3lvol-rpc.md、CubeS3lvol/module/bdev/s3lvol/vbdev_s3lvol.h 与文档《跨机快照》。导入只取 manifest，不整包下载；s3 后端的模板、沙箱、快照从创建模板那一刻起锁定为 s3，不能和 xfs 互转。</p>
+</div>

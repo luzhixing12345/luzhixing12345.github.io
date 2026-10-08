@@ -1,0 +1,197 @@
+<div class="xnode-jfs-flow-demo">
+  <style>
+    .xnode-jfs-flow-demo {
+      --xf-fg: var(--fg, #09090b);
+      --xf-muted: var(--muted, #71717a);
+      --xf-line: var(--line, #e4e4e7);
+      --xf-soft: var(--soft, #f4f4f5);
+      border: 1px solid var(--xf-line);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      background: #fff;
+      font-family: var(--sans, system-ui, sans-serif);
+      color: var(--xf-fg);
+    }
+    .xnode-jfs-flow-demo svg { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; background: var(--xf-soft); }
+    .xnode-jfs-flow-demo text { font-size: 12px; fill: var(--xf-fg); }
+    .xnode-jfs-flow-demo .s { font-size: 11px; fill: var(--xf-muted); }
+    .xnode-jfs-flow-demo .b { font-weight: 600; }
+    .xnode-jfs-flow-demo .zone { fill: #fff; stroke: var(--xf-muted); stroke-dasharray: 5 4; transition: opacity .3s; }
+    .xnode-jfs-flow-demo .zone.dead { opacity: .35; }
+    .xnode-jfs-flow-demo .jfs { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.3; }
+    .xnode-jfs-flow-demo .mst { fill: #fff; stroke: var(--xf-fg); stroke-width: 1.2; }
+    .xnode-jfs-flow-demo circle { transition: fill .3s; }
+    .xnode-jfs-flow-demo .p { fill: #d97706; }
+    .xnode-jfs-flow-demo .d { fill: #16a34a; }
+    .xnode-jfs-flow-demo .g { fill: #d4d4d8; }
+    .xnode-jfs-flow-demo .ar { fill: none; stroke: #d97706; stroke-width: 1.6; transition: opacity .3s; }
+    .xnode-jfs-flow-demo .off { opacity: .1; }
+    .xnode-jfs-flow-demo .bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-top: 1px solid var(--xf-line);
+    }
+    .xnode-jfs-flow-demo button {
+      font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+      border: 1px solid var(--xf-fg); border-radius: 6px; background: var(--xf-fg); color: #fff;
+    }
+    .xnode-jfs-flow-demo .bar .s { font-size: 12px; color: var(--xf-muted); }
+    .xnode-jfs-flow-demo .log {
+      margin: 0; padding: 10px 14px; min-height: 6.4em; list-style: none;
+      background: #09090b; color: #d4d4d8;
+      font-family: var(--mono, ui-monospace, monospace); font-size: 12px; line-height: 1.6;
+    }
+    .xnode-jfs-flow-demo .log .k { color: #a1a1aa; }
+    .xnode-jfs-flow-demo .log .w { color: #fbbf24; }
+    .xnode-jfs-flow-demo .log .ok { color: #4ade80; }
+    @media (prefers-reduced-motion: reduce) {
+      .xnode-jfs-flow-demo * { transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 800 270" role="img" aria-label="跨机暂停恢复流程演示：节点 A 本机暂停后，Publisher 把包发布到 JuiceFS，克隆模板内存再写入脏页，提交后 remote_status 变为 ready；节点 A 下线后 Master 把恢复放到节点 B，B 把小的 rootfs 拷回本地，内存直接映射 JuiceFS 上的文件，客户机碰到的页才按块取回">
+    <defs>
+      <marker id="xf-ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+    </defs>
+
+    <rect class="mst" x="270" y="8" width="260" height="50" rx="6"/>
+    <text class="b" x="282" y="28">CubeMaster</text>
+    <text class="s" x="372" y="28" data-k="m0"></text>
+    <text class="s" x="282" y="47" data-k="m1"></text>
+
+    <rect class="zone" x="16" y="70" width="252" height="186" rx="8" data-k="za"/>
+    <text class="b" x="28" y="90">节点 A · 本地 XFS</text>
+    <rect class="jfs" x="288" y="70" width="224" height="186" rx="8"/>
+    <text class="b" x="300" y="90">JuiceFS（共享）</text>
+    <rect class="zone" x="532" y="70" width="252" height="186" rx="8"/>
+    <text class="b" x="544" y="90">节点 B · 本地 XFS</text>
+
+    <g data-k="rows"></g>
+
+    <path class="ar" d="M268 160 H286" marker-end="url(#xf-ar)" data-k="ap"/>
+    <path class="ar" d="M512 160 H530" marker-end="url(#xf-ar)" data-k="ab"/>
+  </svg>
+  <div class="bar"><button type="button"></button><span class="s"></span></div>
+  <ol class="log" aria-live="polite"></ol>
+
+  <script>
+    (function () {
+      var root = document.currentScript.parentElement;
+      var svg = root.querySelector("svg");
+      var btn = root.querySelector("button");
+      var log = root.querySelector(".log");
+      var cap = root.querySelector(".bar .s");
+      var G = root.querySelector('[data-k="rows"]');
+      var NS = "http://www.w3.org/2000/svg";
+      function q(k) { return root.querySelector('[data-k="' + k + '"]'); }
+
+      var COL = [{ x: 30, n: 4 }, { x: 302, n: 5 }, { x: 546, n: 4 }];
+      var cells = [];
+      COL.forEach(function (c, ci) {
+        cells[ci] = [];
+        for (var r = 0; r < c.n; r++) {
+          var y = 116 + r * 28;
+          var dot = document.createElementNS(NS, "circle");
+          dot.setAttribute("cx", c.x + 4); dot.setAttribute("cy", y - 4); dot.setAttribute("r", 4);
+          G.appendChild(dot);
+          var t = document.createElementNS(NS, "text");
+          t.setAttribute("x", c.x + 14); t.setAttribute("y", y);
+          G.appendChild(t);
+          cells[ci].push([dot, t]);
+        }
+      });
+      var obj = document.createElementNS(NS, "text");
+      obj.setAttribute("x", 302); obj.setAttribute("y", 246); obj.setAttribute("class", "s");
+      G.appendChild(obj);
+
+      var E = ["", ""];
+      var steps = [
+        { btn: "暂停 sb-1", m0: "remote_status = —", m1: "sb-1 运行在节点 A",
+          A: [["sb-1 运行中", "d"], E, E, E],
+          J: [["tpl-x/ 模板已发布", "d"], E, E, E, E], o: "",
+          B: [["空闲", ""], E, E, E], on: [], cap: "起点：模板已在 JuiceFS 里",
+          log: [["k", "模板 tpl-x 做好时已发布到 /cube/tpl/tpl-x/：rootfs、memory、base.ext4，只上传这一次。"],
+                ["", "sb-1 从模板创建在节点 A 上，盘和内存都在本地 XFS，创建路径和今天完全一样。"]] },
+        { btn: "发布到 JuiceFS", m0: "remote_status = pending", m1: "同机 Resume 已经可用",
+          A: [["sb-1 已暂停", "p"], ["snap-p1-rootfs：FICLONE", "d"], ["snap-p1-memory：200 MiB 脏页", "d"], ["metadata/：sandbox_spec.json", "d"]],
+          J: [["tpl-x/ 模板已发布", "d"], E, E, E, E], o: "",
+          B: [["空闲", ""], E, E, E], on: [], cap: "",
+          log: [["", "本机部分不变：冻结 vCPU，可写层 FICLONE 一份；内存镜像先 reflink 上一份，再只覆盖改过的页。约 100 ms。"],
+                ["w", "这时包只在 A 上。CanCrossNode 返回 false，只能回 A 恢复。"]] },
+        { btn: "提交", m0: "remote_status = running", m1: "Publisher 上传中",
+          A: [["sb-1 已暂停", "p"], ["snap-p1-rootfs：FICLONE", "d"], ["snap-p1-memory：200 MiB 脏页", "d"], ["metadata/：sandbox_spec.json", "d"]],
+          J: [["tpl-x/ 模板已发布", "d"], ["pkg/p1.tmp/", "p"], ["memory：clone 模板 + 写脏页", "p"], ["rootfs：稀疏拷贝 4 MiB", "p"], ["meta/：sandbox_spec.json", "p"]],
+          o: "对象存储：上传约 51 个 4 MiB 块", B: [["空闲", ""], E, E, E], on: ["ap"], cap: "",
+          log: [["", "Publisher 在 p1.tmp/ 里 copy_file_range 克隆 tpl-x/memory：只拷元数据，2 GiB 的文件立刻出现。"],
+                ["", "按暂停时记下的脏页范围 pwrite 进去。JuiceFS 写时重定向生成新 slice，只有这约 200 MiB 要上传。"],
+                ["", "rootfs 用 SEEK_DATA / SEEK_HOLE 跳过空洞；逐个 fsync，等块上传完、slice 提交进元数据引擎。"]] },
+        { btn: "节点 A 下线", m0: "remote_status = ready", m1: "Master 记下 /cube/pkg/p1",
+          A: [["sb-1 已暂停", "p"], ["snap-p1-rootfs：FICLONE", "d"], ["snap-p1-memory：200 MiB 脏页", "d"], ["metadata/：sandbox_spec.json", "d"]],
+          J: [["tpl-x/ 模板已发布", "d"], ["pkg/p1/（rename 提交）", "d"], ["memory：clone 模板 + 写脏页", "d"], ["rootfs：稀疏拷贝 4 MiB", "d"], ["meta/ + manifest.json", "d"]],
+          o: "对象存储：新增约 204 MiB", B: [["空闲", ""], E, E, E], on: ["ap"], cap: "",
+          log: [["", "最后写 manifest.json：各文件大小与校验和、父包、cpuid_hash、内核版本。"],
+                ["", "再把 p1.tmp rename 成 p1。rename 是一次元数据事务，别的节点要么看不到，要么看到完整的包。"],
+                ["ok", "Cubelet 上报 ready。从暂停返回到 ready，耗时大致是“脏数据量 ÷ 上传带宽”。"]] },
+        { btn: "在 B 上恢复", m0: "remote_status = ready", m1: "Resume → 节点 B",
+          A: [["节点 A 被隔离", "g"], ["snap-p1-rootfs", "g"], ["snap-p1-memory", "g"], ["metadata/", "g"]], dead: true,
+          J: [["tpl-x/ 模板已发布", "d"], ["pkg/p1/", "d"], ["memory", "d"], ["rootfs", "d"], ["meta/ + manifest.json", "d"]],
+          o: "", B: [["Cubelet 收到 Resume", "p"], E, E, E], on: [], cap: "",
+          log: [["", "restoreplace.Decide 发现源节点不可调度。"],
+                ["", "CanCrossNode(xfs, ready) = true；B 的 cpuid_hash 和内核版本与 A 一致，于是选中 B。"]] },
+        { btn: "客户机开始跑", m0: "remote_status = ready", m1: "sb-1 运行在节点 B",
+          A: [["节点 A 被隔离", "g"], ["snap-p1-rootfs", "g"], ["snap-p1-memory", "g"], ["metadata/", "g"]], dead: true,
+          J: [["tpl-x/ 模板已发布", "d"], ["pkg/p1/", "d"], ["memory", "d"], ["rootfs", "d"], ["meta/ + manifest.json", "d"]],
+          o: "",
+          B: [["sb-1 running", "d"], ["sb-1-rootfs-gen1：拷回 4 MiB", "d"], ["memory：映射 JuiceFS 上的文件", "d"], ["本地缓存：约 10 MiB", "p"]],
+          on: ["ab"], cap: "",
+          log: [["", "Importer 打开 p1/manifest.json 和 meta/。close-to-open 一致性保证看到 A 提交的全部内容。"],
+                ["", "rootfs 只有几 MiB，拷回本地 XFS，之后的磁盘读写都在本地。"],
+                ["ok", "CubeHypervisor 以 MAP_PRIVATE 打开 /data/cubelet/jfs/cube/pkg/p1/memory，不预读，直接恢复 vCPU。"]] },
+        { btn: "重来", m0: "remote_status = ready", m1: "sb-1 运行在节点 B",
+          A: [["节点 A 被隔离", "g"], ["snap-p1-rootfs", "g"], ["snap-p1-memory", "g"], ["metadata/", "g"]], dead: true,
+          J: [["tpl-x/ 模板已发布", "d"], ["pkg/p1/", "d"], ["memory", "d"], ["rootfs", "d"], ["meta/ + manifest.json", "d"]],
+          o: "",
+          B: [["sb-1 running", "d"], ["sb-1-rootfs-gen1：本地", "d"], ["memory：映射 JuiceFS 上的文件", "d"], ["本地缓存：热页逐步进来", "d"]],
+          on: ["ab"], cap: "",
+          log: [["", "客户机碰到的页才触发 FUSE 读；本地缓存没有就去对象存储取：零散小读发范围 GET，其余整块 4 MiB 取回缓存。"],
+                ["", "后台按包里记录的首触页列表做 warmup，把等待挪到客户机碰到之前。"],
+                ["k", "下一次在 B 上暂停时，新内存镜像写进 B 的本地 XFS，再发布成 p2；对 p1 的依赖到此结束。"]] }
+      ];
+      var step = 0;
+
+      function render() {
+        var s = steps[step];
+        q("m0").textContent = s.m0;
+        q("m1").textContent = s.m1;
+        [s.A, s.J, s.B].forEach(function (col, ci) {
+          col.forEach(function (c, r) {
+            cells[ci][r][1].textContent = c[0];
+            cells[ci][r][0].setAttribute("class", c[1] || "g");
+            cells[ci][r][0].setAttribute("opacity", c[0] ? 1 : 0);
+          });
+        });
+        obj.textContent = s.o;
+        q("za").setAttribute("class", "zone" + (s.dead ? " dead" : ""));
+        ["ap", "ab"].forEach(function (k) {
+          q(k).setAttribute("class", "ar" + (s.on.indexOf(k) >= 0 ? "" : " off"));
+        });
+        cap.textContent = s.cap || ("第 " + step + " / " + (steps.length - 1) + " 步");
+        btn.textContent = s.btn;
+        log.innerHTML = "";
+        s.log.forEach(function (l) {
+          var li = document.createElement("li");
+          li.textContent = l[1];
+          if (l[0]) li.className = l[0];
+          log.appendChild(li);
+        });
+      }
+
+      function advance() {
+        step = (step + 1) % steps.length;
+        render();
+      }
+      btn.addEventListener("click", advance);
+      svg.addEventListener("click", advance);
+      render();
+    })();
+  </script>
+</div>
